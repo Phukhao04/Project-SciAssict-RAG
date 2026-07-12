@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 class AuthenRequestBody(BaseModel):
-    authen_request: str = Field(alias="authen_request")
+    authen_request: str
 
     model_config = ConfigDict(populate_by_name=True)
 

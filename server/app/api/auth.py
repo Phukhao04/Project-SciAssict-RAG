@@ -9,7 +9,7 @@ from app.utils.security import sign_token, verify_token, get_current_date_for_to
 router = APIRouter(prefix="/api/authen", tags=["authentication"])
 
 
-@router.post("/authen_request", response_model=AuthResponse)
+@router.post("/authen_request", response_model=AuthResponse, response_model_by_alias=True)
 def authen_request(body: AuthenRequestBody, db: Session = Depends(get_db)):
     result = check_authen_request(db, body.authen_request)
 
@@ -25,7 +25,7 @@ def authen_request(body: AuthenRequestBody, db: Session = Depends(get_db)):
     return AuthResponse(is_error=False, data=authen_token, error_message="")
 
 
-@router.post("/access_request", response_model=AuthResponse)
+@router.post("/access_request", response_model=AuthResponse, response_model_by_alias=True)
 def access_request(body: AccessRequestBody, db: Session = Depends(get_db)):
     decoded = verify_token(body.authen_token)
 
@@ -58,11 +58,3 @@ def access_request(body: AccessRequestBody, db: Session = Depends(get_db)):
         },
         error_message="",
     )
-    
-@router.post("/authen_request", response_model=AuthResponse, response_model_by_alias=True)
-def authen_request(...):
-    ...
-
-@router.post("/access_request", response_model=AuthResponse, response_model_by_alias=True)
-def access_request(...):
-    ...

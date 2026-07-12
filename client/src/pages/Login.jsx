@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { authenRequest, accessRequest } from '../utils/authService'
 import './Login.css'
 
 function Login() {
@@ -18,14 +19,48 @@ function Login() {
   const [lastname, setLastname] = useState('')
   const [email, setEmail] = useState('')
 
-  const handleLoginSubmit = (e) => {
+  // สถานะสำหรับ login
+  const [errorMessage, setErrorMessage] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleLoginSubmit = async (e) => {
     e.preventDefault()
-    setUser(username)
-    navigate('/')
+    setErrorMessage('')
+    setIsLoading(true)
+
+    try {
+      // ขั้นตอนที่ 1: authen_request
+      const step1 = await authenRequest(username)
+
+      if (step1.isError) {
+        setErrorMessage(step1.errorMessage)
+        return
+      }
+
+      const authenToken = step1.data
+
+      // ขั้นตอนที่ 2: access_request
+      const step2 = await accessRequest(username, password, authenToken)
+
+      if (step2.isError) {
+        setErrorMessage(step2.errorMessage)
+        return
+      }
+
+      // login สำเร็จ
+      setUser(username)
+      navigate('/')
+    } catch (err) {
+      console.error(err)
+      setErrorMessage('เกิดข้อผิดพลาดในการเชื่อมต่อ server')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleRegisterSubmit = (e) => {
     e.preventDefault()
+    // TODO: ยังไม่มี endpoint สมัครสมาชิกที่ backend
     setUser(username)
     navigate('/')
   }
@@ -77,8 +112,14 @@ function Login() {
               </button>
             </div>
 
-            <button type="submit" className="submit-btn">
-              เข้าสู่ระบบ
+            {errorMessage && (
+              <p className="error-message" style={{ color: 'red' }}>
+                {errorMessage}
+              </p>
+            )}
+
+            <button type="submit" className="submit-btn" disabled={isLoading}>
+              {isLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </button>
           </form>
         )}
