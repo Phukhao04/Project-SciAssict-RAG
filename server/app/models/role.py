@@ -1,6 +1,7 @@
 from sqlalchemy import Column, String
 from app.db.session import Base
 
+
 class Role(Base):
     __tablename__ = "role"
 
