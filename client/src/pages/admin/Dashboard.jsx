@@ -31,49 +31,51 @@ function Dashboard() {
       <AdminSidebar />
 
       <main className="admin-main">
-        <h1>ภาพรวมระบบ</h1>
+        <div className="admin-content">
+          <h1>ภาพรวมระบบ</h1>
 
-        <div className="stat-grid">
-          {stats.map((stat, i) => (
-            <div key={i} className="stat-card">
-              <p className="stat-label">{stat.label}</p>
-              <p className="stat-value">{stat.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="panel">
-          <p className="panel-title">Query Activity — 7 วันล่าสุด</p>
-          <div className="bar-chart">
-            {queryActivity.map((d, i) => (
-              <div key={i} className="bar-col">
-                <div
-                  className="bar"
-                  style={{ height: `${(d.count / maxCount) * 100}%` }}
-                />
-                <span className="bar-label">{d.day}</span>
+          <div className="stat-grid">
+            {stats.map((stat, i) => (
+              <div key={i} className="stat-card">
+                <p className="stat-label">{stat.label}</p>
+                <p className="stat-value">{stat.value}</p>
               </div>
             ))}
           </div>
-        </div>
 
-        <div className="panel">
-          <p className="panel-title">เอกสารล่าสุด</p>
-          <table className="doc-table">
-            <tbody>
-              {recentDocs.map((doc, i) => (
-                <tr key={i}>
-                  <td>{doc.name}</td>
-                  <td>
-                    <span className="tag tag-pdf">{doc.type}</span>
-                  </td>
-                  <td>
-                    <span className="tag tag-chunks">{doc.chunks} Chunks</span>
-                  </td>
-                </tr>
+          <div className="panel">
+            <p className="panel-title">Query Activity — 7 วันล่าสุด</p>
+            <div className="bar-chart">
+              {queryActivity.map((d, i) => (
+                <div key={i} className="bar-col">
+                  <div
+                    className="bar"
+                    style={{ height: `${(d.count / maxCount) * 100}%` }}
+                  />
+                  <span className="bar-label">{d.day}</span>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          <div className="panel">
+            <p className="panel-title">เอกสารล่าสุด</p>
+            <table className="doc-table">
+              <tbody>
+                {recentDocs.map((doc, i) => (
+                  <tr key={i}>
+                    <td>{doc.name}</td>
+                    <td>
+                      <span className="tag tag-pdf">{doc.type}</span>
+                    </td>
+                    <td>
+                      <span className="tag tag-chunks">{doc.chunks} Chunks</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>

@@ -178,7 +178,7 @@
   padding: 28px;
   border-radius: 12px;
   margin-top: 20px;
-  max-width: 700px;
+  /* max-width: 700px; */
 }
 
 .dropzone {
@@ -491,4 +491,41 @@
   color: #cfe0ff;
   display: inline-block;
   margin-bottom: 14px;
+}
+
+.progress-box {
+  margin-bottom: 20px;
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 8px;
+  background-color: #16223b;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #34c799;
+  border-radius: 4px;
+  transition: width 0.15s ease;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  color: #8ea0bd;
+  font-size: 12px;
+}
+
+.upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-content {
+  max-width: 1100px;
+  margin: 0 auto;
 }
