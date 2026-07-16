@@ -67,7 +67,7 @@ const mockChunks = [
 function DocumentChunks() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [view, setView] = useState("chunks"); // 'full' หรือ 'chunks'
+  const [view, setView] = useState("chunks");
   const [expandedId, setExpandedId] = useState(null);
 
   const toggleExpand = (chunkId) => {
@@ -79,61 +79,63 @@ function DocumentChunks() {
       <AdminSidebar />
 
       <main className="admin-main">
-        <div className="chunks-header">
-          <button className="back-link" onClick={() => navigate("/admin/documents")}>
-            &lt; Chunks
-          </button>
-        </div>
-
-        <div className="view-tabs">
-          <button
-            className={view === "full" ? "view-tab active" : "view-tab"}
-            onClick={() => setView("full")}
-          >
-            ไฟล์เต็ม
-          </button>
-          <button
-            className={view === "chunks" ? "view-tab active" : "view-tab"}
-            onClick={() => setView("chunks")}
-          >
-            Chunks
-          </button>
-        </div>
-
-        {view === "full" && (
-          <div className="full-doc-box">
-            <span className="tag tag-filename">{mockFileName}</span>
-            <pre className="full-doc-text">{mockFullText}</pre>
+        <div className="admin-content">
+          <div className="chunks-header">
+            <button className="back-link" onClick={() => navigate("/admin/documents")}>
+              &lt; Chunks
+            </button>
           </div>
-        )}
 
-        {view === "chunks" && (
-          <div className="chunk-list">
-            {mockChunks.map((chunk) => (
-              <div key={chunk.id} className="chunk-item">
-                <div className="chunk-row" onClick={() => toggleExpand(chunk.id)}>
-                  <span className="tag tag-chunkid">{chunk.id}</span>
-                  <span className="tag tag-category">{chunk.tag}</span>
-                  <span className="chunk-preview">{chunk.preview}</span>
-                  <span className="chunk-caret">
-                    {expandedId === chunk.id ? "▲" : "▼"}
-                  </span>
-                </div>
+          <div className="view-tabs">
+            <button
+              className={view === "full" ? "view-tab active" : "view-tab"}
+              onClick={() => setView("full")}
+            >
+              ไฟล์เต็ม
+            </button>
+            <button
+              className={view === "chunks" ? "view-tab active" : "view-tab"}
+              onClick={() => setView("chunks")}
+            >
+              Chunks
+            </button>
+          </div>
 
-                {expandedId === chunk.id && (
-                  <div className="chunk-detail">
-                    <p className="chunk-unit">{chunk.detail.unit}</p>
-                    <ul>
-                      {chunk.detail.subjects.map((s, i) => (
-                        <li key={i}>{s}</li>
-                      ))}
-                    </ul>
+          {view === "full" && (
+            <div className="full-doc-box">
+              <span className="tag tag-filename">{mockFileName}</span>
+              <pre className="full-doc-text">{mockFullText}</pre>
+            </div>
+          )}
+
+          {view === "chunks" && (
+            <div className="chunk-list">
+              {mockChunks.map((chunk) => (
+                <div key={chunk.id} className="chunk-item">
+                  <div className="chunk-row" onClick={() => toggleExpand(chunk.id)}>
+                    <span className="tag tag-chunkid">{chunk.id}</span>
+                    <span className="tag tag-category">{chunk.tag}</span>
+                    <span className="chunk-preview">{chunk.preview}</span>
+                    <span className="chunk-caret">
+                      {expandedId === chunk.id ? "▲" : "▼"}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+
+                  {expandedId === chunk.id && (
+                    <div className="chunk-detail">
+                      <p className="chunk-unit">{chunk.detail.unit}</p>
+                      <ul>
+                        {chunk.detail.subjects.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
