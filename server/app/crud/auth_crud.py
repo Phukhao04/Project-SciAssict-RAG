@@ -1,12 +1,9 @@
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from app.utils.security import get_current_date_for_token
+from app.utils.security import get_current_date_for_token, hash_password
 
 
 def check_authen_request(db: Session, authen_request: str):
-    """หา user ที่ SHA2(username & date, 256) ตรงกับ authen_request ที่ client ส่งมา
-    เทียบเท่า checkAuthenRequest ใน user_account.js
-    """
     date_str = get_current_date_for_token()
 
     sql = text("""
@@ -25,10 +22,6 @@ def check_authen_request(db: Session, authen_request: str):
 
 
 def check_access_request(db: Session, authen_signature: str, authen_token: str):
-    """หา user ที่ SHA2(username & password & authen_token, 256) ตรงกับ authen_signature
-    เทียบเท่า checkAccessRequest ใน user_account.js
-    หมายเหตุ: column `password` ในตาราง user เก็บเป็นค่าที่ hash ด้วย SHA256 มาแล้วจากฝั่ง client
-    """
     sql = text("""
         SELECT user_id, username, email, firstname, lastname, role_id
         FROM user
@@ -52,3 +45,38 @@ def check_access_request(db: Session, authen_signature: str, authen_token: str):
             "role_id": row.role_id,
         },
     }
+
+
+def username_exists(db: Session, username: str) -> bool:
+    sql = text("SELECT 1 FROM user WHERE username = :username")
+    return db.execute(sql, {"username": username}).first() is not None
+
+
+def create_user(
+    db: Session,
+    username: str,
+    password: str,
+    email: str,
+    role_id: str,
+    firstname: str | None = None,
+    lastname: str | None = None,
+) -> dict:
+    hashed = hash_password(password)
+
+    insert_sql = text("""
+        INSERT INTO user (username, password, email, role_id, firstname, lastname)
+        VALUES (:username, :password, :email, :role_id, :firstname, :lastname)
+    """)
+    result = db.execute(
+        insert_sql,
+        {
+            "username": username,
+            "password": hashed,
+            "email": email,
+            "role_id": role_id,
+            "firstname": firstname,
+            "lastname": lastname,
+        },
+    )
+    db.commit()
+    return {"user_id": result.lastrowid, "username": username, "email": email}

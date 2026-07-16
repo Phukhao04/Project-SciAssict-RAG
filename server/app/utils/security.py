@@ -7,6 +7,8 @@ from app.config import settings
 def sha256_hex(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
+def hash_password(password: str) -> str:
+    return sha256_hex(password)
 
 def get_current_date_for_token() -> str:
     now = datetime.now()
