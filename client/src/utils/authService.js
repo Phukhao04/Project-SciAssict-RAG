@@ -66,3 +66,51 @@ export async function accessRequest(username, password, authenToken) {
     errorMessage: json.errorMessage,
   };
 }
+
+// --- ขั้นตอน register ---
+export async function registerRequest({
+  username,
+  password,
+  email,
+  roleId,
+  firstname,
+  lastname,
+}) {
+  const response = await fetch(`${AppConfig.apiBaseUri}/authen/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify({
+      username,
+      password, // ส่ง plaintext ตรงนี้ครั้งเดียวตอนสมัคร (ผ่าน HTTPS ตอน deploy จริง)
+      email,
+      role_id: roleId,
+      firstname: firstname || null,
+      lastname: lastname || null,
+    }),
+  });
+
+  const json = await response.json().catch(() => null);
+
+  if (response.status === 200) {
+    return { isError: false, data: json, errorMessage: "" };
+  }
+
+  if (response.status === 400) {
+    return { isError: true, data: null, errorMessage: json?.detail || "สมัครสมาชิกไม่สำเร็จ" };
+  }
+
+  if (response.status === 422) {
+    const fieldErrors = {};
+    if (Array.isArray(json?.detail)) {
+      for (const item of json.detail) {
+        const field = item.loc?.[item.loc.length - 1];
+        if (field) fieldErrors[field] = item.msg;
+      }
+    }
+    return { isError: true, data: null, errorMessage: "", fieldErrors };
+  }
+
+  return { isError: true, data: null, errorMessage: "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง" };
+}

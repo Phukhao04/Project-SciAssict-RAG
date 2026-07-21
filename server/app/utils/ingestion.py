@@ -1,20 +1,35 @@
 """
-Ingestion pipeline: เอกสารเต็ม -> chunk (hierarchical) -> embed -> insert เข้า DB
-ทำไม insert เข้า document ก่อน document_chunk:
-เพราะ document_chunk มี FK ผูกกับ document_id ต้องมี document อยู่ก่อนถึงจะ insert chunk ได้
+Ingestion pipeline
 
-ทำไมใช้ hierarchical_chunk แม้กับ text ธรรมดา (ไม่มีโครงสร้างหัวข้อ):
-ส่ง level_patterns=[] (ว่างเปล่า) เข้าไป -> ไม่มี pattern ไหน match เลย
--> ทั้งข้อความกลายเป็น "1 section" เดียว -> ถ้ายาวเกิน max_chars
-จะถูกส่งต่อให้ recursive_split ตัดต่ออัตโนมัติ (พฤติกรรมเหมือน chunk_text เดิมทุกประการ)
-ทำให้ใช้ engine เดียวได้ทั้งกรณี "มีโครงสร้าง" และ "ไม่มีโครงสร้าง"
+หน้าที่
+1. บันทึกข้อมูลเอกสาร
+2. แบ่งเอกสารเป็น Chunk
+3. สร้าง Embedding ของแต่ละ Chunk
+4. บันทึก Chunk และ Vector ลงฐานข้อมูล
 """
+
 import json
+import re
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from .hierarchical_chunking import hierarchical_chunk
-from .embedding import embed_batch
+from .embedding import get_embedder
+
+
+def clean_text(text: str) -> str:
+    """
+    ทำความสะอาดข้อความก่อนสร้าง Embedding
+    """
+
+    text = text.replace("\u00A0", " ")
+    text = text.replace("\t", " ")
+
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"[ ]{2,}", " ", text)
+
+    return text.strip()
 
 
 def ingest_document(
@@ -29,13 +44,34 @@ def ingest_document(
     overlap_chars: int = 75,
     level_patterns: list | None = None,
 ) -> dict:
-    # 1) insert เข้า document ก่อน เพื่อได้ document_id มาใช้เป็น FK
+
+    # -----------------------------
+    # 1) Insert Document
+    # -----------------------------
+
     insert_doc_sql = text(
         """
-        INSERT INTO document (document_name, document_type, category_id, user_id, upload_date, description)
-        VALUES (:document_name, :document_type, :category_id, :user_id, NOW(), :description)
+        INSERT INTO document
+        (
+            document_name,
+            document_type,
+            category_id,
+            user_id,
+            upload_date,
+            description
+        )
+        VALUES
+        (
+            :document_name,
+            :document_type,
+            :category_id,
+            :user_id,
+            NOW(),
+            :description
+        )
         """
     )
+
     result = db.execute(
         insert_doc_sql,
         {
@@ -46,10 +82,15 @@ def ingest_document(
             "description": description,
         },
     )
-    document_id = result.lastrowid
-    db.commit()  # commit ทันที กัน transaction ค้างนาน (เจอปัญหา connection หลุดมาก่อน)
 
-    # 2) chunk เนื้อหาด้วย hierarchical_chunk (level_patterns=[] = ไม่มีโครงสร้าง ตัดตามขนาดอย่างเดียว)
+    document_id = result.lastrowid
+
+    db.commit()
+
+    # -----------------------------
+    # 2) Chunk
+    # -----------------------------
+
     chunks = hierarchical_chunk(
         full_text,
         level_patterns=level_patterns or [],
@@ -57,22 +98,71 @@ def ingest_document(
         overlap_chars=overlap_chars,
         header_prefix=document_name,
     )
+
     if not chunks:
-        return {"document_id": document_id, "chunks_inserted": 0}
+        return {
+            "document_id": document_id,
+            "chunks_inserted": 0,
+        }
 
-    # 3) embed ทีเดียวเป็น batch (เร็วกว่า loop ทีละ chunk)
-    texts = [c.text for c in chunks]
-    embeddings = embed_batch(texts)
+    # -----------------------------
+    # 3) Prepare Text
+    # -----------------------------
 
-    # 4) insert เข้า document_chunk แบบ parameterized query
+    texts = []
+
+    for chunk in chunks:
+
+        text_for_embedding = clean_text(
+            f"""
+เอกสาร : {document_name}
+
+เนื้อหา :
+
+{chunk.text}
+"""
+        )
+
+        texts.append(text_for_embedding)
+
+    # -----------------------------
+    # 4) Embedding (Batch)
+    # -----------------------------
+
+    embedder = get_embedder()
+
+    embeddings = embedder.encode(
+        texts,
+        normalize_embeddings=True,
+        batch_size=32,
+        show_progress_bar=False,
+    ).tolist()
+
+    # -----------------------------
+    # 5) Insert Chunks
+    # -----------------------------
+
     insert_chunk_sql = text(
         """
-        INSERT INTO document_chunk (document_id, chunk_text, embedding_vector, created_at)
-        VALUES (:document_id, :chunk_text, :embedding_vector, NOW())
+        INSERT INTO document_chunk
+        (
+            document_id,
+            chunk_text,
+            embedding_vector,
+            created_at
+        )
+        VALUES
+        (
+            :document_id,
+            :chunk_text,
+            :embedding_vector,
+            NOW()
+        )
         """
     )
 
     for chunk, embedding in zip(chunks, embeddings):
+
         db.execute(
             insert_chunk_sql,
             {
@@ -83,4 +173,8 @@ def ingest_document(
         )
 
     db.commit()
-    return {"document_id": document_id, "chunks_inserted": len(chunks)}
+
+    return {
+        "document_id": document_id,
+        "chunks_inserted": len(chunks),
+    }

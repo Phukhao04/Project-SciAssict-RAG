@@ -1,15 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
 import './Chat.css'
-
-const mockSessions = [
-  { id: 1, title: 'รายวิชาหลักสูตร ICT 01' },
-  { id: 2, title: 'ตารางเรียนเทอม 2/2568' },
-  { id: 3, title: 'วันสอบปลายภาคปีนี้' },
-  { id: 4, title: 'หน่วยกิตรวมหลักสูตร' },
-  { id: 5, title: 'วิชาเลือกเสรีที่เปิดรับ' },
-]
 
 const suggestionCards = [
   'อาจารย์ประจำหลักสูตร ICT มีใครบ้าง',
@@ -21,34 +14,65 @@ const suggestionCards = [
 function Chat() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
-  const fileInputRef = useRef(null)
 
-  const [activeSessionId, setActiveSessionId] = useState(1)
+  const [sessions, setSessions] = useState([])
+  const [activeSessionId, setActiveSessionId] = useState(null)
   const [message, setMessage] = useState('')
   const [chatHistory, setChatHistory] = useState([])
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [attachedFile, setAttachedFile] = useState(null)
+  const [isSending, setIsSending] = useState(false)
 
-  const handleSend = (e) => {
+  // โหลด session list ตอนเปิดหน้าครั้งแรก
+  useEffect(() => {
+    if (!user?.user_id) return
+    getSessions(user.user_id).then(setSessions)
+  }, [user?.user_id])
+
+  const handleSessionClick = async (sessionId) => {
+    setActiveSessionId(sessionId)
+    const messages = await getSessionMessages(sessionId)
+    // แปลง sender_role ('user'/'bot') จาก backend ให้ตรงกับ role ที่ UI ใช้อยู่แล้ว
+    setChatHistory(
+      messages.map((m) => ({ role: m.sender_role, text: m.message_text }))
+    )
+  }
+
+  const handleSend = async (e) => {
     e.preventDefault()
-    if (!message.trim() && !attachedFile) return
+    const trimmed = message.trim()
+    if (!trimmed || isSending || !user?.user_id) return
 
-    const userMessage = {
-      role: 'user',
-      text: message,
-      fileName: attachedFile?.name,
-    }
+    const userMessage = { role: 'user', text: trimmed }
     setChatHistory((prev) => [...prev, userMessage])
     setMessage('')
-    setAttachedFile(null)
+    setIsSending(true)
 
-    setTimeout(() => {
-      const botMessage = {
-        role: 'bot',
-        text: 'อ่อ หรอออ',
+    try {
+      const result = await chatRequest(trimmed, user.user_id, activeSessionId)
+
+      if (result.isError) {
+        setChatHistory((prev) => [...prev, { role: 'bot', text: result.errorMessage, isError: true }])
+        return
       }
-      setChatHistory((prev) => [...prev, botMessage])
-    }, 500)
+
+      setChatHistory((prev) => [...prev, { role: 'bot', text: result.answer, sources: result.sources }])
+
+      // ถ้าเป็นข้อความแรก (ไม่เคยมี activeSessionId มาก่อน) -> เพิ่งสร้าง session ใหม่จาก backend
+      // ต้องอัปเดต state + โหลด session list ใหม่ ให้โผล่ในแถบซ้ายทันที
+      if (!activeSessionId) {
+        setActiveSessionId(result.sessionId)
+        const updatedSessions = await getSessions(user.user_id)
+        setSessions(updatedSessions)
+      }
+    } catch (err) {
+      console.error(err)
+      setChatHistory((prev) => [
+        ...prev,
+        { role: 'bot', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง', isError: true },
+      ])
+    } finally {
+      setIsSending(false)
+    }
   }
 
   const handleSuggestionClick = (text) => {
@@ -56,9 +80,9 @@ function Chat() {
   }
 
   const handleNewChat = () => {
+    // ไม่ยิง API ตรงนี้ -- รอจนกว่าจะพิมพ์คำถามแรกจริง backend ถึงจะสร้าง session ให้เอง
     setChatHistory([])
     setMessage('')
-    setAttachedFile(null)
     setActiveSessionId(null)
   }
 
@@ -67,17 +91,8 @@ function Chat() {
     navigate('/login')
   }
 
-  const handleAttachClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0]
-    if (file) setAttachedFile(file)
-    e.target.value = '' // เคลียร์ค่า input ไว้ เผื่อเลือกไฟล์เดิมซ้ำได้อีก
-  }
-
   const hasMessages = chatHistory.length > 0
+  const avatarLetter = user?.username ? user.username[0].toUpperCase() : 'U'
 
   return (
     <div className="chat-page">
@@ -98,13 +113,13 @@ function Chat() {
           <p className="sidebar-label">ล่าสุด</p>
 
           <ul className="session-list">
-            {mockSessions.map((session) => (
+            {sessions.map((session) => (
               <li
-                key={session.id}
-                className={session.id === activeSessionId ? 'session active' : 'session'}
-                onClick={() => setActiveSessionId(session.id)}
+                key={session.session_id}
+                className={session.session_id === activeSessionId ? 'session active' : 'session'}
+                onClick={() => handleSessionClick(session.session_id)}
               >
-                {session.title}
+                {session.session_title || 'สนทนาไม่มีชื่อ'}
               </li>
             ))}
           </ul>
@@ -120,9 +135,9 @@ function Chat() {
           )}
 
           <div className="sidebar-user" onClick={() => setShowUserMenu((v) => !v)}>
-            <div className="user-avatar">{user ? user[0]?.toUpperCase() : 'U'}</div>
+            <div className="user-avatar">{avatarLetter}</div>
             <div>
-              <p className="user-name">{user || 'ผู้ใช้งาน'}</p>
+              <p className="user-name">{user?.username || 'ผู้ใช้งาน'}</p>
             </div>
           </div>
         </div>
@@ -131,7 +146,7 @@ function Chat() {
       <main className="chat-main">
         <div className="chat-header">
           <span className="version-tag">RAG v1.0</span>
-          <div className="header-avatar">{user ? user[0]?.toUpperCase() : 'U'}</div>
+          <div className="header-avatar">{avatarLetter}</div>
         </div>
 
         {!hasMessages ? (
@@ -142,11 +157,7 @@ function Chat() {
 
             <div className="suggestion-grid">
               {suggestionCards.map((text, i) => (
-                <button
-                  key={i}
-                  className="suggestion-card"
-                  onClick={() => handleSuggestionClick(text)}
-                >
+                <button key={i} className="suggestion-card" onClick={() => handleSuggestionClick(text)}>
                   {text}
                 </button>
               ))}
@@ -155,49 +166,28 @@ function Chat() {
         ) : (
           <div className="chat-messages">
             {chatHistory.map((msg, i) => (
-              <div
-                key={i}
-                className={msg.role === 'user' ? 'bubble user-bubble' : 'bubble bot-bubble'}
-              >
-                {msg.fileName && <div className="bubble-file"> + {msg.fileName}</div>}
+              <div key={i} className={msg.role === 'user' ? 'bubble user-bubble' : 'bubble bot-bubble'}>
                 {msg.text}
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="bubble-sources">อ้างอิงจาก: {msg.sources.join(', ')}</div>
+                )}
               </div>
             ))}
-          </div>
-        )}
-
-        {attachedFile && (
-          <div className="attached-preview">
-            <span> + {attachedFile.name}</span>
-            <button type="button" onClick={() => setAttachedFile(null)}>
-              ✕
-            </button>
+            {isSending && <div className="bubble bot-bubble bubble-loading">กำลังค้นหาคำตอบ...</div>}
           </div>
         )}
 
         <form onSubmit={handleSend} className="chat-input-bar">
           <input
-            type="file"
-            ref={fileInputRef}
-            hidden
-            onChange={handleFileChange}
-            accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
-          />
-          <button
-            type="button"
-            className="attach-btn"
-            title="แนบไฟล์"
-            onClick={handleAttachClick}
-          >
-            +
-          </button>
-          <input
             type="text"
             placeholder="ถามข้อมูลเกี่ยวกับหลักสูตร อาจารย์ หรือรายวิชา..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            disabled={isSending}
           />
-          <button type="submit" className="send-btn">➤</button>
+          <button type="submit" className="send-btn" disabled={isSending}>
+            {isSending ? '...' : '➤'}
+          </button>
         </form>
       </main>
     </div>

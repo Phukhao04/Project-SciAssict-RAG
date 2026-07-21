@@ -1,27 +1,34 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { authenRequest, accessRequest } from '../utils/authService'
+import { authenRequest, accessRequest, registerRequest } from '../utils/authService'
 import './Login.css'
+
+// role_id คงที่สำหรับ user ที่สมัครเอง (ห้ามให้เลือกเอง กันสมัครเป็น admin)
+// ต้องเช็คให้ตรงกับ role_id จริงในตาราง role ก่อนใช้งาน
+const DEFAULT_ROLE_ID = 'R02'
 
 function Login() {
   const navigate = useNavigate()
   const { setUser } = useAuth()
   const [mode, setMode] = useState('login')
 
-  // ฟิลด์สำหรับ login
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
-  // ฟิลด์เพิ่มเติมสำหรับ register
   const [firstname, setFirstname] = useState('')
   const [lastname, setLastname] = useState('')
   const [email, setEmail] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
-  // สถานะสำหรับ login
   const [errorMessage, setErrorMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  const [registerFieldErrors, setRegisterFieldErrors] = useState({})
+  const [registerGeneralError, setRegisterGeneralError] = useState('')
+  const [registerSuccessMessage, setRegisterSuccessMessage] = useState('')
+  const [isRegistering, setIsRegistering] = useState(false)
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault()
@@ -29,26 +36,26 @@ function Login() {
     setIsLoading(true)
 
     try {
-      // ขั้นตอนที่ 1: authen_request
       const step1 = await authenRequest(username)
-
       if (step1.isError) {
         setErrorMessage(step1.errorMessage)
         return
       }
 
       const authenToken = step1.data
-
-      // ขั้นตอนที่ 2: access_request
       const step2 = await accessRequest(username, password, authenToken)
-
       if (step2.isError) {
         setErrorMessage(step2.errorMessage)
         return
       }
 
-      // login สำเร็จ
-      setUser(username)
+      setUser({
+        user_id: step2.data.user_id,
+        username: step2.data.username,
+        firstname: step2.data.firstname,
+        lastname: step2.data.lastname,
+        role_id: step2.data.role_id,
+      })
       navigate('/')
     } catch (err) {
       console.error(err)
@@ -58,11 +65,64 @@ function Login() {
     }
   }
 
-  const handleRegisterSubmit = (e) => {
+  const validateRegisterClientSide = () => {
+    const errors = {}
+    if (username.trim().length < 3 || username.trim().length > 50) {
+      errors.username = 'ชื่อผู้ใช้ต้องมีความยาว 3-50 ตัวอักษร'
+    }
+    if (password.length < 8) {
+      errors.password = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'
+    }
+    if (password !== confirmPassword) {
+      errors.confirmPassword = 'รหัสผ่านไม่ตรงกัน'
+    }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailPattern.test(email)) {
+      errors.email = 'รูปแบบอีเมลไม่ถูกต้อง'
+    }
+    setRegisterFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault()
-    // TODO: ยังไม่มี endpoint สมัครสมาชิกที่ backend
-    setUser(username)
-    navigate('/')
+    setRegisterGeneralError('')
+    setRegisterSuccessMessage('')
+
+    if (!validateRegisterClientSide()) {
+      return
+    }
+
+    setIsRegistering(true)
+    try {
+      const result = await registerRequest({
+        username: username.trim(),
+        password,
+        email: email.trim(),
+        roleId: DEFAULT_ROLE_ID,
+        firstname: firstname.trim(),
+        lastname: lastname.trim(),
+      })
+
+      if (!result.isError) {
+        setRegisterSuccessMessage('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ')
+        setPassword('')
+        setConfirmPassword('')
+        setMode('login')
+        return
+      }
+
+      if (result.fieldErrors) {
+        setRegisterFieldErrors(result.fieldErrors)
+      } else {
+        setRegisterFieldErrors({ username: result.errorMessage })
+      }
+    } catch (err) {
+      console.error(err)
+      setRegisterGeneralError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setIsRegistering(false)
+    }
   }
 
   return (
@@ -89,6 +149,10 @@ function Login() {
 
         {mode === 'login' && (
           <form onSubmit={handleLoginSubmit} className="login-form">
+            {registerSuccessMessage && (
+              <p className="success-text">{registerSuccessMessage}</p>
+            )}
+
             <label className="field-label">Username</label>
             <input
               type="text"
@@ -126,6 +190,8 @@ function Login() {
 
         {mode === 'register' && (
           <form onSubmit={handleRegisterSubmit} className="login-form">
+            {registerGeneralError && <p className="error-text">{registerGeneralError}</p>}
+
             <label className="field-label">ชื่อ</label>
             <input
               type="text"
@@ -145,14 +211,22 @@ function Login() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              required
             />
+            {registerFieldErrors.username && (
+              <p className="error-text">{registerFieldErrors.username}</p>
+            )}
 
             <label className="field-label">อีเมล</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
             />
+            {registerFieldErrors.email && (
+              <p className="error-text">{registerFieldErrors.email}</p>
+            )}
 
             <label className="field-label">รหัสผ่าน</label>
             <div className="password-wrapper">
@@ -160,6 +234,8 @@ function Login() {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
               />
               <button
                 type="button"
@@ -169,9 +245,23 @@ function Login() {
                 {showPassword ? '🙈' : '👁️'}
               </button>
             </div>
+            {registerFieldErrors.password && (
+              <p className="error-text">{registerFieldErrors.password}</p>
+            )}
 
-            <button type="submit" className="submit-btn">
-              สมัครใช้งาน
+            <label className="field-label">ยืนยันรหัสผ่าน</label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+            {registerFieldErrors.confirmPassword && (
+              <p className="error-text">{registerFieldErrors.confirmPassword}</p>
+            )}
+
+            <button type="submit" className="submit-btn" disabled={isRegistering}>
+              {isRegistering ? 'กำลังสมัคร...' : 'สมัครใช้งาน'}
             </button>
           </form>
         )}

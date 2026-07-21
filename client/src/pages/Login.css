@@ -1,5 +1,6 @@
 .login-page {
   min-height: 100vh;
+  min-height: 100dvh; /* fallback สำหรับมือถือที่ address bar ยุบ/ขยาย */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -104,4 +105,34 @@
   background-color: #34c799;
   color: #0b1120;
   font-weight: 600;
+}
+
+/* ===== จอเล็ก (มือถือ ~380px ลงไป) ===== */
+@media (max-width: 380px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-card {
+    padding: 28px 20px 32px;
+    border-radius: 12px;
+  }
+
+  .login-title {
+    font-size: 24px;
+  }
+
+  .login-form input {
+    padding: 12px 14px;
+    margin-bottom: 16px;
+  }
+
+  .submit-btn {
+    padding: 13px;
+  }
+
+  .tab {
+    padding: 10px;
+    font-size: 14px;
+  }
 }
