@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { authenRequest, accessRequest } from '../utils/authService'
+import { authenRequest, accessRequest,registerRequest } from '../utils/authService'
 import './Login.css'
 
 function Login() {
@@ -23,33 +23,38 @@ function Login() {
   const [errorMessage, setErrorMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  const [registerFieldErrors, setRegisterFieldErrors] = useState({})
+  const [registerGeneralError, setRegisterGeneralError] = useState('')
+  const [registerSuccessMessage, setRegisterSuccessMessage] = useState('')
+  const [isRegistering, setIsRegistering] = useState(false)
+
   const handleLoginSubmit = async (e) => {
     e.preventDefault()
     setErrorMessage('')
     setIsLoading(true)
 
     try {
-      // ขั้นตอนที่ 1: authen_request
       const step1 = await authenRequest(username)
-
       if (step1.isError) {
         setErrorMessage(step1.errorMessage)
         return
       }
 
       const authenToken = step1.data
-
-      // ขั้นตอนที่ 2: access_request
       const step2 = await accessRequest(username, password, authenToken)
-
       if (step2.isError) {
         setErrorMessage(step2.errorMessage)
         return
       }
 
-      // login สำเร็จ
-      setUser(username)
-      navigate('/')
+      setUser({
+        user_id: step2.data.user_id,
+        username: step2.data.username,
+        firstname: step2.data.firstname,
+        lastname: step2.data.lastname,
+        role_id: step2.data.role_id,
+      })
+      navigate('/chat')
     } catch (err) {
       console.error(err)
       setErrorMessage('เกิดข้อผิดพลาดในการเชื่อมต่อ server')
@@ -58,12 +63,70 @@ function Login() {
     }
   }
 
-  const handleRegisterSubmit = (e) => {
-    e.preventDefault()
-    // TODO: ยังไม่มี endpoint สมัครสมาชิกที่ backend
-    setUser(username)
-    navigate('/')
+  const validateRegisterClientSide = () => {
+    const errors = {}
+    if (username.trim().length < 3 || username.trim().length > 50) {
+      errors.username = 'ชื่อผู้ใช้ต้องมีความยาว 3-50 ตัวอักษร'
+    }
+    if (password.length < 8) {
+      errors.password = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'
+    }
+    // if (password !== confirmPassword) {
+    //   errors.confirmPassword = 'รหัสผ่านไม่ตรงกัน'
+    // }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailPattern.test(email)) {
+      errors.email = 'รูปแบบอีเมลไม่ถูกต้อง'
+    }
+    setRegisterFieldErrors(errors)
+    return Object.keys(errors).length === 0
   }
+
+  const handleRegisterSubmit = async (e) => {
+  e.preventDefault()
+  setRegisterGeneralError('')
+  setRegisterSuccessMessage('')
+
+  if (!validateRegisterClientSide()) {
+    return
+  }
+
+  setIsRegistering(true)
+  try {
+    const result = await registerRequest({
+      username: username.trim(),
+      password,
+      email: email.trim(),
+      roleId: "R02", // หรือเปลี่ยนเป็น roleId ที่ใช้ในฐานข้อมูล
+      firstname: firstname.trim(),
+      lastname: lastname.trim(),
+    })
+
+    if (!result.isError) {
+      setRegisterSuccessMessage('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ')
+
+      setFirstname('')
+      setLastname('')
+      setUsername('')
+      setEmail('')
+      setPassword('')
+
+      setMode('login')
+      return
+    }
+
+    if (result.fieldErrors) {
+      setRegisterFieldErrors(result.fieldErrors)
+    } else {
+      setRegisterGeneralError(result.errorMessage)
+    }
+  } catch (err) {
+    console.error(err)
+    setRegisterGeneralError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')
+  } finally {
+    setIsRegistering(false)
+  }
+}
 
   return (
     <div className="login-page">

@@ -1,15 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { getSessions, getMessages } from '../utils/chatService'
 import './Chat.css'
-
-const mockSessions = [
-  { id: 1, title: 'รายวิชาหลักสูตร ICT 01' },
-  { id: 2, title: 'ตารางเรียนเทอม 2/2568' },
-  { id: 3, title: 'วันสอบปลายภาคปีนี้' },
-  { id: 4, title: 'หน่วยกิตรวมหลักสูตร' },
-  { id: 5, title: 'วิชาเลือกเสรีที่เปิดรับ' },
-]
 
 const suggestionCards = [
   'อาจารย์ประจำหลักสูตร ICT มีใครบ้าง',
@@ -23,11 +16,51 @@ function Chat() {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
-  const [activeSessionId, setActiveSessionId] = useState(1)
+  const [sessions, setSessions] = useState([])
+  const [activeSessionId, setActiveSessionId] = useState(null)
   const [message, setMessage] = useState('')
   const [chatHistory, setChatHistory] = useState([])
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [attachedFile, setAttachedFile] = useState(null)
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true)
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+
+  // โหลดรายการ session ทั้งหมดตอนเปิดหน้า
+  useEffect(() => {
+    if (!user?.user_id) return
+
+    setIsLoadingSessions(true)
+    getSessions(user.user_id).then((result) => {
+      if (!result.isError) {
+        setSessions(result.data)
+      } else {
+        console.error('โหลด sessions ไม่สำเร็จ:', result.errorMessage)
+      }
+      setIsLoadingSessions(false)
+    })
+  }, [user])
+
+  // โหลดข้อความ ทุกครั้งที่เปลี่ยน session ที่เลือก
+  useEffect(() => {
+    if (!activeSessionId) {
+      setChatHistory([])
+      return
+    }
+
+    setIsLoadingMessages(true)
+    getMessages(activeSessionId).then((result) => {
+      if (!result.isError) {
+        const formatted = result.data.map((m) => ({
+          role: m.sender_role,
+          text: m.message_text,
+        }))
+        setChatHistory(formatted)
+      } else {
+        console.error('โหลด messages ไม่สำเร็จ:', result.errorMessage)
+      }
+      setIsLoadingMessages(false)
+    })
+  }, [activeSessionId])
 
   const handleSend = (e) => {
     e.preventDefault()
@@ -42,6 +75,8 @@ function Chat() {
     setMessage('')
     setAttachedFile(null)
 
+    // TODO: รอ backend เพิ่ม endpoint POST /api/chat/sessions/{id}/messages
+    // ตอนนี้ยังจำลองคำตอบไว้ก่อน
     setTimeout(() => {
       const botMessage = {
         role: 'bot',
@@ -74,7 +109,7 @@ function Chat() {
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (file) setAttachedFile(file)
-    e.target.value = '' // เคลียร์ค่า input ไว้ เผื่อเลือกไฟล์เดิมซ้ำได้อีก
+    e.target.value = ''
   }
 
   const hasMessages = chatHistory.length > 0
@@ -97,17 +132,23 @@ function Chat() {
 
           <p className="sidebar-label">ล่าสุด</p>
 
-          <ul className="session-list">
-            {mockSessions.map((session) => (
-              <li
-                key={session.id}
-                className={session.id === activeSessionId ? 'session active' : 'session'}
-                onClick={() => setActiveSessionId(session.id)}
-              >
-                {session.title}
-              </li>
-            ))}
-          </ul>
+          {isLoadingSessions ? (
+            <p className="sidebar-label">กำลังโหลด...</p>
+          ) : (
+            <ul className="session-list">
+              {sessions.map((session) => (
+                <li
+                  key={session.session_id}
+                  className={
+                    session.session_id === activeSessionId ? 'session active' : 'session'
+                  }
+                  onClick={() => setActiveSessionId(session.session_id)}
+                >
+                  {session.session_title}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="sidebar-user-wrap">
@@ -120,9 +161,13 @@ function Chat() {
           )}
 
           <div className="sidebar-user" onClick={() => setShowUserMenu((v) => !v)}>
-            <div className="user-avatar">{user ? user[0]?.toUpperCase() : 'U'}</div>
+            <div className="user-avatar">
+              {user?.firstname?.charAt(0).toUpperCase() || 'U'}
+            </div>
             <div>
-              <p className="user-name">{user || 'ผู้ใช้งาน'}</p>
+              <p className="user-name">
+                {user ? `${user.firstname} ${user.lastname}` : 'ผู้ใช้งาน'}
+              </p>
             </div>
           </div>
         </div>
@@ -131,10 +176,16 @@ function Chat() {
       <main className="chat-main">
         <div className="chat-header">
           <span className="version-tag">RAG v1.0</span>
-          <div className="header-avatar">{user ? user[0]?.toUpperCase() : 'U'}</div>
+          <div className="header-avatar">
+            {user ? user.firstname.charAt(0).toUpperCase() : 'U'}
+          </div>
         </div>
 
-        {!hasMessages ? (
+        {isLoadingMessages ? (
+          <div className="chat-welcome">
+            <p>กำลังโหลดบทสนทนา...</p>
+          </div>
+        ) : !hasMessages ? (
           <div className="chat-welcome">
             <div className="chat-logo">🤖</div>
             <h2>สนทนาใหม่</h2>
