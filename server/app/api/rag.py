@@ -12,8 +12,9 @@ from app.utils.extraction import UnsupportedFileTypeError, extract_text
 from app.utils.ingestion import ingest_document
 from app.utils.llm import generate_answer
 from app.utils.retrieval import retrieve
+from app.crud.chat_crud import create_session, save_message
 
-router = APIRouter(prefix="/rag", tags=["RAG"])
+router = APIRouter(prefix="/api/rag", tags=["RAG"])
 
 MAX_FILE_SIZE_MB = 20
 
@@ -93,12 +94,20 @@ def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(payload: ChatRequest, db: Session = Depends(get_db)):
+    session_id = payload.session_id
+    if session_id is None:
+        # ยังไม่มี session -> สร้างใหม่ ใช้คำถามแรกเป็นชื่อ session
+        session_id = create_session(db, payload.user_id, payload.question)
+
     try:
-        # retrieve ครั้งเดียว แล้วส่งต่อให้ generate_answer (กันเรียกซ้ำ)
         chunks = retrieve(db, payload.question, k=payload.k)
         answer = generate_answer(db, payload.question, k=payload.k, retrieved=chunks)
     except Exception as exc:
         raise HTTPException(status_code=500, detail="ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่") from exc
 
+    # บันทึกทั้งคำถามและคำตอบลง messages อัตโนมัติ
+    save_message(db, session_id, payload.user_id, "user", payload.question)
+    save_message(db, session_id, payload.user_id, "bot", answer)
+
     sources = list({c.document_name for c in chunks})
-    return ChatResponse(answer=answer, sources=sources)
+    return ChatResponse(answer=answer, sources=sources, session_id=session_id)
