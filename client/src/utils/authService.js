@@ -67,8 +67,12 @@ export async function accessRequest(username, password, authenToken) {
   };
 }
 
+
 // *********** //
 //register
+
+// --- ขั้นตอน register ---
+
 export async function registerRequest({
   username,
   password,
@@ -77,6 +81,7 @@ export async function registerRequest({
   firstname,
   lastname,
 }) {
+
   const response = await fetch(
     `${AppConfig.apiBaseUri}/authen/register`,
     {
@@ -144,4 +149,3 @@ export async function registerRequest({
     errorMessage: "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง",
   };
 }
-
