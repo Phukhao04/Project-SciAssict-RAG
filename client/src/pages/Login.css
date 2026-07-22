@@ -1,0 +1,138 @@
+.login-page {
+  min-height: 100vh;
+  min-height: 100dvh; /* fallback สำหรับมือถือที่ address bar ยุบ/ขยาย */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0b1120;
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 480px;
+  background-color: #111a2e;
+  border: 1px solid #24304a;
+  border-radius: 16px;
+  padding: 40px 40px 48px;
+  text-align: center;
+}
+
+.login-title {
+  color: #cfe0ff;
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.login-form {
+  text-align: left;
+}
+
+.field-label {
+  display: block;
+  color: #b9c6dc;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.login-form input {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: #16223b;
+  border: 1px solid #2a3652;
+  border-radius: 10px;
+  padding: 14px 16px;
+  color: #e8edf5;
+  font-size: 15px;
+  margin-bottom: 20px;
+  outline: none;
+}
+
+.login-form input:focus {
+  border-color: #34c799;
+}
+
+.password-wrapper {
+  position: relative;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 15px;
+  background-color: #34c799;
+  border: none;
+  border-radius: 10px;
+  color: #0b1120;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit-btn:hover {
+  background-color: #2bb389;
+}
+
+.login-tabs {
+  display: flex;
+  border: 1px solid #2a3652;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  color: #9fb0cc;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.tab.active {
+  background-color: #34c799;
+  color: #0b1120;
+  font-weight: 600;
+}
+
+/* ===== จอเล็ก (มือถือ ~380px ลงไป) ===== */
+@media (max-width: 380px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-card {
+    padding: 28px 20px 32px;
+    border-radius: 12px;
+  }
+
+  .login-title {
+    font-size: 24px;
+  }
+
+  .login-form input {
+    padding: 12px 14px;
+    margin-bottom: 16px;
+  }
+
+  .submit-btn {
+    padding: 13px;
+  }
+
+  .tab {
+    padding: 10px;
+    font-size: 14px;
+  }
+}
