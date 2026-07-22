@@ -23,7 +23,7 @@ def clean_text(text: str) -> str:
     ทำความสะอาดข้อความก่อนสร้าง Embedding
     """
 
-    text = text.replace("\u00A0", " ")
+    text = text.replace("\u00a0", " ")
     text = text.replace("\t", " ")
 
     text = re.sub(r"\n{3,}", "\n\n", text)
@@ -49,8 +49,7 @@ def ingest_document(
     # 1) Insert Document
     # -----------------------------
 
-    insert_doc_sql = text(
-        """
+    insert_doc_sql = text("""
         INSERT INTO document
         (
             document_name,
@@ -69,8 +68,7 @@ def ingest_document(
             NOW(),
             :description
         )
-        """
-    )
+        """)
 
     result = db.execute(
         insert_doc_sql,
@@ -113,15 +111,13 @@ def ingest_document(
 
     for chunk in chunks:
 
-        text_for_embedding = clean_text(
-            f"""
+        text_for_embedding = clean_text(f"""
 เอกสาร : {document_name}
 
 เนื้อหา :
 
 {chunk.text}
-"""
-        )
+""")
 
         texts.append(text_for_embedding)
 
@@ -142,8 +138,7 @@ def ingest_document(
     # 5) Insert Chunks
     # -----------------------------
 
-    insert_chunk_sql = text(
-        """
+    insert_chunk_sql = text("""
         INSERT INTO document_chunk
         (
             document_id,
@@ -158,8 +153,7 @@ def ingest_document(
             :embedding_vector,
             NOW()
         )
-        """
-    )
+        """)
 
     for chunk, embedding in zip(chunks, embeddings):
 

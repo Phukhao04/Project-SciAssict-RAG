@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
 import './Chat.css'
 
 const suggestionCards = [
@@ -19,13 +20,24 @@ function Chat() {
   const [message, setMessage] = useState('')
   const [chatHistory, setChatHistory] = useState([])
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [attachedFile, setAttachedFile] = useState(null)
   const [isSending, setIsSending] = useState(false)
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
 
-  const fileInputRef = useRef(null)
+  // โหลด session list ตอนเปิดหน้าครั้งแรก
+  useEffect(() => {
+    if (!user?.user_id) return
+    getSessions(user.user_id).then(setSessions)
+  }, [user?.user_id])
 
-  const handleSend = (e) => {
+  const handleSessionClick = async (sessionId) => {
+    setActiveSessionId(sessionId)
+    const messages = await getSessionMessages(sessionId)
+    // แปลง sender_role ('user'/'bot') จาก backend ให้ตรงกับ role ที่ UI ใช้อยู่แล้ว
+    setChatHistory(
+      messages.map((m) => ({ role: m.sender_role, text: m.message_text }))
+    )
+  }
+
+  const handleSend = async (e) => {
     e.preventDefault()
     const trimmed = message.trim()
     if (!trimmed || isSending || !user?.user_id) return
@@ -33,17 +45,34 @@ function Chat() {
     const userMessage = { role: 'user', text: trimmed }
     setChatHistory((prev) => [...prev, userMessage])
     setMessage('')
-    setAttachedFile(null)
     setIsSending(true)
 
-    setTimeout(() => {
-      const botMessage = {
-        role: 'bot',
-        text: 'อ่อ หรอออ',
+    try {
+      const result = await chatRequest(trimmed, user.user_id, activeSessionId)
+
+      if (result.isError) {
+        setChatHistory((prev) => [...prev, { role: 'bot', text: result.errorMessage, isError: true }])
+        return
       }
-      setChatHistory((prev) => [...prev, botMessage])
+
+      setChatHistory((prev) => [...prev, { role: 'bot', text: result.answer, sources: result.sources }])
+
+      // ถ้าเป็นข้อความแรก (ไม่เคยมี activeSessionId มาก่อน) -> เพิ่งสร้าง session ใหม่จาก backend
+      // ต้องอัปเดต state + โหลด session list ใหม่ ให้โผล่ในแถบซ้ายทันที
+      if (!activeSessionId) {
+        setActiveSessionId(result.sessionId)
+        const updatedSessions = await getSessions(user.user_id)
+        setSessions(updatedSessions)
+      }
+    } catch (err) {
+      console.error(err)
+      setChatHistory((prev) => [
+        ...prev,
+        { role: 'bot', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง', isError: true },
+      ])
+    } finally {
       setIsSending(false)
-    }, 500)
+    }
   }
 
   const handleSuggestionClick = (text) => {
@@ -60,16 +89,6 @@ function Chat() {
   const handleLogout = () => {
     setUser(null)
     navigate('/login')
-  }
-
-  const handleAttachClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0]
-    if (file) setAttachedFile(file)
-    e.target.value = '' // เคลียร์ค่า input ไว้ เผื่อเลือกไฟล์เดิมซ้ำได้อีก
   }
 
   const hasMessages = chatHistory.length > 0
@@ -96,11 +115,11 @@ function Chat() {
           <ul className="session-list">
             {sessions.map((session) => (
               <li
-                key={session.id}
-                className={session.id === activeSessionId ? 'session active' : 'session'}
-                onClick={() => setActiveSessionId(session.id)}
+                key={session.session_id}
+                className={session.session_id === activeSessionId ? 'session active' : 'session'}
+                onClick={() => handleSessionClick(session.session_id)}
               >
-                {session.title}
+                {session.session_title || 'สนทนาไม่มีชื่อ'}
               </li>
             ))}
           </ul>
@@ -130,11 +149,7 @@ function Chat() {
           <div className="header-avatar">{avatarLetter}</div>
         </div>
 
-        {isLoadingMessages ? (
-          <div className="chat-welcome">
-            <p>กำลังโหลดบทสนทนา...</p>
-          </div>
-        ) : !hasMessages ? (
+        {!hasMessages ? (
           <div className="chat-welcome">
             <div className="chat-logo">🤖</div>
             <h2>สนทนาใหม่</h2>
@@ -153,9 +168,6 @@ function Chat() {
             {chatHistory.map((msg, i) => (
               <div key={i} className={msg.role === 'user' ? 'bubble user-bubble' : 'bubble bot-bubble'}>
                 {msg.text}
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="bubble-sources">อ้างอิงจาก: {msg.sources.join(', ')}</div>
-                )}
               </div>
             ))}
             {isSending && <div className="bubble bot-bubble bubble-loading">กำลังค้นหาคำตอบ...</div>}

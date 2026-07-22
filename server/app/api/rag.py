@@ -3,6 +3,7 @@ RAG API endpoints
 ทำไมไฟล์นี้ "บาง" (ไม่มี logic เยอะ): เพราะ logic จริงอยู่ใน utils/ หมดแล้ว
 ไฟล์นี้มีหน้าที่แค่ "รับ request -> เรียก utils -> ส่ง response" เท่านั้น
 """
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -39,7 +40,9 @@ async def upload_document(
     file_bytes = await file.read()
     size_mb = len(file_bytes) / (1024 * 1024)
     if size_mb > MAX_FILE_SIZE_MB:
-        raise HTTPException(status_code=413, detail=f"ไฟล์ใหญ่เกิน {MAX_FILE_SIZE_MB}MB")
+        raise HTTPException(
+            status_code=413, detail=f"ไฟล์ใหญ่เกิน {MAX_FILE_SIZE_MB}MB"
+        )
 
     try:
         full_text = extract_text(file.filename, file_bytes)
@@ -67,7 +70,8 @@ async def upload_document(
     except Exception as exc:
         db.rollback()
         raise HTTPException(
-            status_code=400, detail="ไม่สามารถบันทึกเอกสารได้ กรุณาตรวจสอบข้อมูลที่ส่งมา"
+            status_code=400,
+            detail="ไม่สามารถบันทึกเอกสารได้ กรุณาตรวจสอบข้อมูลที่ส่งมา",
         ) from exc
 
     return IngestResponse(**result)
@@ -87,7 +91,10 @@ def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
         )
     except Exception as exc:
         db.rollback()
-        raise HTTPException(status_code=400, detail="ไม่สามารถบันทึกเอกสารได้ กรุณาตรวจสอบข้อมูลที่ส่งมา") from exc
+        raise HTTPException(
+            status_code=400,
+            detail="ไม่สามารถบันทึกเอกสารได้ กรุณาตรวจสอบข้อมูลที่ส่งมา",
+        ) from exc
 
     return IngestResponse(**result)
 
@@ -103,7 +110,9 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
         chunks = retrieve(db, payload.question, k=payload.k)
         answer = generate_answer(db, payload.question, k=payload.k, retrieved=chunks)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่") from exc
+        raise HTTPException(
+            status_code=500, detail="ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่"
+        ) from exc
 
     # บันทึกทั้งคำถามและคำตอบลง messages อัตโนมัติ
     save_message(db, session_id, payload.user_id, "user", payload.question)

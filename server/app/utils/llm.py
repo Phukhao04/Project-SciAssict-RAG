@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 
 from .retrieval import retrieve
 
-
 SYSTEM_PROMPT = """
 คุณคือผู้ช่วยตอบคำถามของคณะวิทยาศาสตร์
 มหาวิทยาลัยสงขลานครินทร์
@@ -55,116 +54,49 @@ def generate_answer(
     retrieved=None,
 ) -> str:
 
-    # -------------------------
-    # Retrieval
-    # -------------------------
-
     if retrieved is None:
-        retrieved = retrieve(
-            db,
-            question,
-            k=k,
-        )
+        retrieved = retrieve(db, question, k=k)
 
     if not retrieved:
         return "ไม่พบข้อมูลนี้ในระบบ"
 
-    # -------------------------
-    # Build Context
-    # -------------------------
-
+    # เปลี่ยนจาก "Context 1/2/3" เป็นแค่บรรทัดคั่นเอกสารเฉยๆ
+    # กัน LLM หยิบคำว่า "Context" ไปพูดในคำตอบ (ตามกฎข้อ 8 ที่ห้ามบอกที่มา)
     context_parts = []
+    for chunk in retrieved:
+        context_parts.append(f"[{chunk.document_name}] {chunk.chunk_text}")
 
-    for i, chunk in enumerate(retrieved, start=1):
-
-        context_parts.append(
-            f"""
-========== Context {i} ==========
-
-เอกสาร :
-{chunk.document_name}
-
-เนื้อหา :
-{chunk.chunk_text}
-
-Similarity Distance :
-{chunk.distance:.4f}
-"""
-        )
-
-    context = "\n".join(context_parts)
-
-    # -------------------------
-    # Prompt
-    # -------------------------
+    context = "\n\n".join(context_parts)
 
     prompt = f"""
-Context
+ข้อมูลอ้างอิง:
 
 {context}
 
 --------------------------------
 
-Question
-
-{question}
+คำถาม: {question}
 
 --------------------------------
 
-Instructions
-
-- ใช้เฉพาะข้อมูลใน Context
-
-- ถ้าหาไม่พบ
-ตอบว่า
-"ไม่พบข้อมูลนี้ในระบบ"
-
-- ห้ามเดา
-
---------------------------------
-
-Answer
+ตอบคำถามจากข้อมูลอ้างอิงข้างต้นเท่านั้น ห้ามพูดถึงคำว่า "ข้อมูลอ้างอิง" หรือบอกที่มาของข้อมูลในคำตอบ
+ถ้าไม่พบคำตอบ ให้ตอบว่า "ไม่พบข้อมูลนี้ในระบบ" ห้ามเดา
 """
-
-    # -------------------------
-    # Debug
-    # -------------------------
 
     print("\n================ PROMPT ================\n")
     print(prompt)
     print("\n========================================\n")
 
-    # -------------------------
-    # Generate
-    # -------------------------
-
     try:
-
         response = ollama.chat(
             model=model,
             messages=[
-                {
-                    "role": "system",
-                    "content": SYSTEM_PROMPT,
-                },
-                {
-                    "role": "user",
-                    "content": prompt,
-                },
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
             ],
-            options={
-                "temperature": 0,
-                "top_p": 0.9,
-                "num_predict": 512,
-            },
+            options={"temperature": 0, "top_p": 0.9, "num_predict": 512},
         )
-
-        answer = response["message"]["content"].strip()
-
-        return answer
-
+        return response["message"]["content"].strip()
     except Exception as exc:
-
         print(f"[LLM ERROR] {exc}")
-
         return "ขออภัย ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง"
