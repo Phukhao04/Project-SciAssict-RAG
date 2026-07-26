@@ -93,6 +93,7 @@ function Chat() {
 
   const hasMessages = chatHistory.length > 0
   const avatarLetter = user?.username ? user.username[0].toUpperCase() : 'U'
+  const isAdmin = user?.role_id === 'R01'
 
   return (
     <div className="chat-page">
@@ -146,7 +147,19 @@ function Chat() {
       <main className="chat-main">
         <div className="chat-header">
           <span className="version-tag">RAG v1.0</span>
-          <div className="header-avatar">{avatarLetter}</div>
+
+          <div className="header-right">
+            {isAdmin && (
+              <button
+                className="switch-page-btn"
+                onClick={() => navigate('/admin')}
+              >
+                Admin Page
+              </button>
+            )}
+
+            <div className="header-avatar">{avatarLetter}</div>
+          </div>
         </div>
 
         {!hasMessages ? (
@@ -168,9 +181,6 @@ function Chat() {
             {chatHistory.map((msg, i) => (
               <div key={i} className={msg.role === 'user' ? 'bubble user-bubble' : 'bubble bot-bubble'}>
                 {msg.text}
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="bubble-sources">อ้างอิงจาก: {msg.sources.join(', ')}</div>
-                )}
               </div>
             ))}
             {isSending && <div className="bubble bot-bubble bubble-loading">กำลังค้นหาคำตอบ...</div>}

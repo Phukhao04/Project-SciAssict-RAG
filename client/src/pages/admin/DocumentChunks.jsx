@@ -1,78 +1,82 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import "./Admin.css";
 
-const mockFileName = "ICT2564.pdf";
-
-const mockFullText = `หลักสูตรวิทยาศาสตร์บัณฑิต
-สาขาวิชาเทคโนโลยีสารสนเทศและการสื่อสาร
-หลักสูตรปรับปรุง พ.ศ. 2564
-
-สาขาวิชาเทคโนโลยีสารสนเทศและการสื่อสาร
-คณะวิทยาศาสตร์
-มหาวิทยาลัยสงขลานครินทร์
-วิทยาเขตหาดใหญ่
-
-------- หมวดที่ 1 ข้อมูลทั่วไป -------
-
-1. รหัสและชื่อหลักสูตร
-รหัส: 25521751104430
-ชื่อภาษาไทย: หลักสูตรวิทยาศาสตร์บัณฑิต
-สาขาวิชาเทคโนโลยีสารสนเทศและการสื่อสาร
-
-------- 3.1.6 แผนการศึกษา -------`;
-
-const mockChunks = [
-  {
-    id: "chunk_1",
-    tag: "Study Plan",
-    preview: "322-101 แคลคูลัส 1 3(3-0-6) 324-101 หลักฟิสิกส์ 1 3(3-0-6) 325-1...",
-    detail: {
-      unit: "หน่วยที่ 1 ภาคการศึกษาที่ 1",
-      subjects: [
-        "322-101 แคลคูลัส 1 3(3-0-6)",
-        "324-101 หลักฟิสิกส์ 1 3(3-0-6)",
-        "325-101 ปฏิบัติการฟิสิกส์ 1 1(0-3-0)",
-        "332-101 พื้นฐานเขียน 3(3-0-6)",
-      ],
-    },
-  },
-  {
-    id: "chunk_2",
-    tag: "Study Plan",
-    preview: "308-101 พื้นฐานคณิตศาสตร์คอมพิวเตอร์ 2(1-2-3) 308-102 หลักการเขียนโปรแกร...",
-    detail: {
-      unit: "หน่วยที่ 2 ภาคการศึกษาที่ 1",
-      subjects: [
-        "308-101 พื้นฐานคณิตศาสตร์คอมพิวเตอร์ 2(1-2-3)",
-        "308-102 หลักการเขียนโปรแกรม 3(2-2-5)",
-      ],
-    },
-  },
-  {
-    id: "chunk_3",
-    tag: "Study Plan",
-    preview: "308-221 กิจกรรมเสริมทักษะวิชาชีพ 2 2(1-2-3) 308-231 การเขียนโปรแกรมเชิงว...",
-    detail: {
-      unit: "หน่วยที่ 3 ภาคการศึกษาที่ 2",
-      subjects: [
-        "308-221 กิจกรรมเสริมทักษะวิชาชีพ 2 2(1-2-3)",
-        "308-231 การเขียนโปรแกรมเชิงวัตถุ 3(2-2-5)",
-      ],
-    },
-  },
-];
+const API_BASE_URL = "http://127.0.0.1:8000";
+const PREVIEW_LENGTH = 80;
 
 function DocumentChunks() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [view, setView] = useState("chunks");
   const [expandedId, setExpandedId] = useState(null);
+
+  const [doc, setDoc] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const loadDocument = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/rag/documents/${id}`);
+      if (res.status === 404) throw new Error("ไม่พบเอกสารนี้ในระบบ");
+      if (!res.ok) throw new Error("โหลดข้อมูลเอกสารไม่สำเร็จ");
+      const data = await res.json();
+      setDoc(data);
+      setLoadError("");
+    } catch (err) {
+      console.error(err);
+      setLoadError(err.message || "โหลดข้อมูลเอกสารไม่สำเร็จ");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadDocument ตั้ง setState หลัง await เท่านั้น
+    loadDocument();
+  }, [loadDocument]);
 
   const toggleExpand = (chunkId) => {
     setExpandedId((prev) => (prev === chunkId ? null : chunkId));
   };
+
+  if (isLoading) {
+    return (
+      <div className="admin-page">
+        <AdminSidebar />
+        <main className="admin-main">
+          <div className="admin-content">
+            <p>กำลังโหลดข้อมูลเอกสาร...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (loadError || !doc) {
+    return (
+      <div className="admin-page">
+        <AdminSidebar />
+        <main className="admin-main">
+          <div className="admin-content">
+            <button className="back-link" onClick={() => navigate("/admin/documents")}>
+              &lt; กลับ
+            </button>
+            <p className="error-message" style={{ color: "red" }}>
+              {loadError || "ไม่พบเอกสารนี้ในระบบ"}
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ต่อ chunk_text ทั้งหมดเข้าด้วยกันเพื่อประมาณ "ไฟล์เต็ม"
+  // หมายเหตุ: นี่คือข้อความที่ประกอบขึ้นจาก chunks ไม่ใช่ text ต้นฉบับก่อน chunking
+  // เพราะระบบยังไม่ได้เก็บ full text ของเอกสารแยกไว้
+  const reconstructedText = doc.chunks.map((c) => c.chunk_text).join("\n\n---\n\n");
 
   return (
     <div className="admin-page">
@@ -82,7 +86,7 @@ function DocumentChunks() {
         <div className="admin-content">
           <div className="chunks-header">
             <button className="back-link" onClick={() => navigate("/admin/documents")}>
-              &lt; Chunks
+              &lt; {doc.document_name}
             </button>
           </div>
 
@@ -97,42 +101,51 @@ function DocumentChunks() {
               className={view === "chunks" ? "view-tab active" : "view-tab"}
               onClick={() => setView("chunks")}
             >
-              Chunks
+              Chunks ({doc.chunks.length})
             </button>
           </div>
 
           {view === "full" && (
             <div className="full-doc-box">
-              <span className="tag tag-filename">{mockFileName}</span>
-              <pre className="full-doc-text">{mockFullText}</pre>
+              <span className="tag tag-filename">
+                {doc.document_name}.{doc.document_type}
+              </span>
+              {doc.chunks.length === 0 ? (
+                <p>เอกสารนี้ยังไม่มี chunk ในระบบ</p>
+              ) : (
+                <pre className="full-doc-text">{reconstructedText}</pre>
+              )}
             </div>
           )}
 
           {view === "chunks" && (
             <div className="chunk-list">
-              {mockChunks.map((chunk) => (
-                <div key={chunk.id} className="chunk-item">
-                  <div className="chunk-row" onClick={() => toggleExpand(chunk.id)}>
-                    <span className="tag tag-chunkid">{chunk.id}</span>
-                    <span className="tag tag-category">{chunk.tag}</span>
-                    <span className="chunk-preview">{chunk.preview}</span>
-                    <span className="chunk-caret">
-                      {expandedId === chunk.id ? "▲" : "▼"}
-                    </span>
-                  </div>
+              {doc.chunks.length === 0 && <p>เอกสารนี้ยังไม่มี chunk ในระบบ</p>}
 
-                  {expandedId === chunk.id && (
-                    <div className="chunk-detail">
-                      <p className="chunk-unit">{chunk.detail.unit}</p>
-                      <ul>
-                        {chunk.detail.subjects.map((s, i) => (
-                          <li key={i}>{s}</li>
-                        ))}
-                      </ul>
+              {doc.chunks.map((chunk) => {
+                const isLong = chunk.chunk_text.length > PREVIEW_LENGTH;
+                const preview = isLong
+                  ? chunk.chunk_text.slice(0, PREVIEW_LENGTH) + "..."
+                  : chunk.chunk_text;
+
+                return (
+                  <div key={chunk.chunk_id} className="chunk-item">
+                    <div className="chunk-row" onClick={() => toggleExpand(chunk.chunk_id)}>
+                      <span className="tag tag-chunkid">chunk_{chunk.chunk_id}</span>
+                      <span className="chunk-preview">{preview}</span>
+                      <span className="chunk-caret">
+                        {expandedId === chunk.chunk_id ? "▲" : "▼"}
+                      </span>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {expandedId === chunk.chunk_id && (
+                      <div className="chunk-detail">
+                        <pre className="full-doc-text">{chunk.chunk_text}</pre>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

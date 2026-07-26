@@ -12,6 +12,7 @@ Hierarchical + Recursive Chunking
           ทำแบบ "recursive" คือลองแบ่งหน่วยใหญ่ก่อน (ย่อหน้า) แล้วค่อยลง
           หน่วยเล็กลง (ประโยค) ถ้ายังยาวไปอีก
 """
+
 import re
 from dataclasses import dataclass, field
 
@@ -25,6 +26,7 @@ class Chunk:
 
 # ---------- ขั้นที่ 2: Recursive splitter (ตัวสำรองเมื่อ section ยาวเกิน) ----------
 
+
 def _split_sentences(text: str) -> list[str]:
     """แบ่งข้อความเป็นประโยคย่อย (หน่วยเล็กสุดที่ยอมตัด ไม่ตัดกลางประโยค)"""
     text = text.strip()
@@ -34,11 +36,15 @@ def _split_sentences(text: str) -> list[str]:
         part = part.strip()
         if not part:
             continue
-        sentences.extend(s.strip() for s in re.split(r"(?<=[.!?ฯ])\s+", part) if s.strip())
+        sentences.extend(
+            s.strip() for s in re.split(r"(?<=[.!?ฯ])\s+", part) if s.strip()
+        )
     return sentences
 
 
-def _pack_units(units: list[str], max_chars: int, overlap_chars: int, joiner: str = " ") -> list[str]:
+def _pack_units(
+    units: list[str], max_chars: int, overlap_chars: int, joiner: str = " "
+) -> list[str]:
     """
     ฟังก์ชันกลาง: รวม 'หน่วยข้อความ' (จะเป็นประโยคหรือคำก็ได้) เข้าด้วยกัน
     จนใกล้ max_chars แล้วเว้น overlap_chars ให้ก้อนถัดไป
@@ -80,7 +86,9 @@ def _hard_split(text: str, max_chars: int, overlap_chars: int) -> list[str]:
     return [text[i : i + max_chars] for i in range(0, len(text), step)]
 
 
-def recursive_split(text: str, max_chars: int = 500, overlap_chars: int = 75) -> list[str]:
+def recursive_split(
+    text: str, max_chars: int = 500, overlap_chars: int = 75
+) -> list[str]:
     """
     ตัดข้อความยาวเป็นชิ้นขนาด ~max_chars ตัวอักษร ไล่ระดับความละเอียดจากหยาบไปละเอียด:
     1) ลองแบ่งเป็น "ประโยค" ก่อน (ธรรมชาติสุด อ่านแล้วยังได้ใจความ)
@@ -118,6 +126,7 @@ def recursive_split(text: str, max_chars: int = 500, overlap_chars: int = 75) ->
 
 
 # ---------- ขั้นที่ 1: Hierarchical splitter (แบ่งตามโครงสร้างหัวข้อ) ----------
+
 
 def hierarchical_chunk(
     text: str,
@@ -184,7 +193,9 @@ def hierarchical_chunk(
         else:
             # เหลือพื้นที่ให้เนื้อหาจริงเท่ากับ max_chars ลบความยาว prefix
             budget = max(max_chars - len(prefix) - 1, 100)  # กันเหลือน้อยเกินไป
-            sub_pieces = recursive_split(body, max_chars=budget, overlap_chars=overlap_chars)
+            sub_pieces = recursive_split(
+                body, max_chars=budget, overlap_chars=overlap_chars
+            )
             for piece in sub_pieces:
                 full_text = f"{prefix}\n{piece}" if prefix else piece
                 result.append(Chunk(full_text, idx, path))

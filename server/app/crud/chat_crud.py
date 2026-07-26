@@ -23,7 +23,11 @@ def get_sessions_by_user(db: Session, user_id: int) -> list[dict]:
     """)
     rows = db.execute(sql, {"user_id": user_id}).fetchall()
     return [
-        {"session_id": r.session_id, "session_title": r.session_title, "created_at": r.created_at}
+        {
+            "session_id": r.session_id,
+            "session_title": r.session_title,
+            "created_at": r.created_at,
+        }
         for r in rows
     ]
 
@@ -47,7 +51,9 @@ def get_messages_by_session(db: Session, session_id: int) -> list[dict]:
     ]
 
 
-def save_message(db: Session, session_id: int, user_id: int, sender_role: str, text_content: str):
+def save_message(
+    db: Session, session_id: int, user_id: int, sender_role: str, text_content: str
+):
     insert_sql = text("""
         INSERT INTO messages (session_id, user_id, sender_role, message_text, timestamp)
         VALUES (:session_id, :user_id, :sender_role, :message_text, NOW())

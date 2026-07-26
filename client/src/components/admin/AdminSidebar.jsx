@@ -42,6 +42,16 @@ function AdminSidebar() {
           </Link>
         </li>
       </ul>
+        <ul className="admin-menu">
+        <li>
+          <Link
+            to="/admin/users"
+            className={isActive('/admin/users') ? 'admin-menu-item active' : 'admin-menu-item'}
+          >
+            จัดการผู้ใช้งาน
+          </Link>
+        </li>
+      </ul>
     </aside>
   )
 }

@@ -5,6 +5,7 @@ import Dashboard from './pages/admin/Dashboard'
 import UploadDocument from './pages/admin/UploadDocument'
 import DocumentManagement from './pages/admin/DocumentManagement'
 import DocumentChunks from './pages/admin/DocumentChunks'
+import UserManagement from './pages/admin/UserManagement'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import RootRedirect from './pages/RootRedirect'
 import './App.css'
@@ -53,6 +54,14 @@ function App() {
         element={
           <ProtectedRoute>
             <DocumentChunks />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute>
+            <UserManagement />
           </ProtectedRoute>
         }
       />

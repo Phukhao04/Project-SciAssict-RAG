@@ -5,6 +5,7 @@ Text extraction จากไฟล์ PDF และ Word (.docx)
 
 ต้องลง dependency เพิ่ม: pip install pypdf python-docx
 """
+
 import io
 
 from pypdf import PdfReader
@@ -38,7 +39,9 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     # ดึงข้อความจากตารางด้วย (เอกสารราชการ/หลักสูตรมักมีตารางข้อมูลสำคัญ)
     for table in doc.tables:
         for row in table.rows:
-            row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+            row_text = " | ".join(
+                cell.text.strip() for cell in row.cells if cell.text.strip()
+            )
             if row_text:
                 parts.append(row_text)
 

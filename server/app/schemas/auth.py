@@ -22,7 +22,11 @@ class AuthResponse(BaseModel):
 
 class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    password: str = Field(..., min_length=8, description="รับ plaintext ตรงนี้ครั้งเดียว ผ่าน HTTPS เท่านั้น")
+    password: str = Field(
+        ...,
+        min_length=8,
+        description="รับ plaintext ตรงนี้ครั้งเดียว ผ่าน HTTPS เท่านั้น",
+    )
     email: EmailStr
     role_id: str = Field(..., max_length=10)
     firstname: str | None = None

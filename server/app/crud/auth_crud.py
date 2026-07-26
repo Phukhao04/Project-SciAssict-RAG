@@ -11,7 +11,9 @@ def check_authen_request(db: Session, authen_request: str):
         FROM user
         WHERE SHA2(CONCAT(username, '&', :date_str), 256) = :authen_request
     """)
-    row = db.execute(sql, {"date_str": date_str, "authen_request": authen_request}).first()
+    row = db.execute(
+        sql, {"date_str": date_str, "authen_request": authen_request}
+    ).first()
 
     if row is None:
         return {"is_error": True, "error_message": "ไม่พบข้อมูลผู้ใช้ในระบบ"}
