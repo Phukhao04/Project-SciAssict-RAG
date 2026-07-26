@@ -4,8 +4,7 @@ Retrieval Service
 หน้าที่
 1. สร้าง Query Embedding
 2. ค้นหา Vector ที่ใกล้ที่สุดจาก TiDB
-3. กรองผลลัพธ์ที่ไม่เกี่ยวข้อง
-4. ส่ง Context กลับให้ LLM
+3. ส่ง Context กลับให้ LLM
 """
 
 import json
@@ -19,10 +18,6 @@ from .embedding import embed_query
 
 logger = logging.getLogger(__name__)
 
-# ระยะห่างสูงสุดที่ยอมรับ
-# ยิ่งน้อยยิ่งเกี่ยวข้อง
-MAX_DISTANCE = 0.55
-
 
 @dataclass
 class RetrievedChunk:
@@ -32,35 +27,25 @@ class RetrievedChunk:
     distance: float
 
 
-def retrieve(
-    db: Session,
-    query_text_str: str,
-    k: int = 5,
-) -> list[RetrievedChunk]:
+def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChunk]:
+    """
+    คืนค่า k chunk ที่ใกล้เคียงกับคำถามมากที่สุด
+    """
 
-    # -------------------------
-    # Query Embedding
-    # -------------------------
-    query_embedding = embed_query(query_text_str.strip())
+    query_embedding = embed_query(query_text_str)
 
-    # -------------------------
-    # Vector Search
-    # -------------------------
     sql = text("""
         SELECT
             dc.chunk_text,
             dc.document_id,
             d.document_name,
-            vec_cosine_distance(
-                dc.embedding_vector,
-                :query_embedding
-            ) AS distance
+            vec_cosine_distance(dc.embedding_vector, :query_embedding) AS distance
         FROM document_chunk dc
         JOIN document d
             ON dc.document_id = d.document_id
-        ORDER BY distance ASC
+        ORDER BY distance
         LIMIT :k
-        """)
+    """)
 
     rows = db.execute(
         sql,
@@ -70,28 +55,12 @@ def retrieve(
         },
     ).fetchall()
 
-    # -------------------------
-    # Filter
-    # -------------------------
-    results: list[RetrievedChunk] = []
-
-    logger.debug("Question: %s", query_text_str)
-
-    for row in rows:
-        distance = float(row[3])
-
-        logger.debug("%s | distance=%.4f", row[2], distance)
-
-        if distance <= MAX_DISTANCE:
-            results.append(
-                RetrievedChunk(
-                    chunk_text=row[0],
-                    document_id=row[1],
-                    document_name=row[2],
-                    distance=distance,
-                )
-            )
-
-    logger.debug("Retrieved %d chunks", len(results))
-
-    return results
+    return [
+        RetrievedChunk(
+            chunk_text=row.chunk_text,
+            document_id=row.document_id,
+            document_name=row.document_name,
+            distance=row.distance,
+        )
+        for row in rows
+    ]

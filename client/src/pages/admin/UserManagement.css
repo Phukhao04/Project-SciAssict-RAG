@@ -1,0 +1,243 @@
+/*
+  สี/สไตล์ตั้งใจให้ใกล้เคียงธีม Admin Portal เดิม (navy เข้ม + ตัวหนังสือฟ้าอ่อน)
+  ตั้ง class prefix เป็น "um-" (UserManagement) เพื่อไม่ชนกับ class ใน Admin.css เดิม
+  ถ้าโปรเจกต์มี Admin.css ที่นิยาม layout กลาง (header/sidebar) อยู่แล้ว ไฟล์นี้ดูแลเฉพาะ
+  "เนื้อหาภายในหน้า" เท่านั้น ไม่ยุ่งกับ sidebar/header ที่มาจาก layout ส่วนกลาง
+*/
+
+.um-page {
+  color: #e2e8f0;
+  padding: 8px 4px;
+}
+
+.um-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+}
+
+.um-title {
+  font-size: 1.9rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0 0 6px 0;
+}
+
+.um-subtitle {
+  color: #8b98ac;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.um-toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.um-search {
+  flex: 1;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #101a30;
+  border: 1px solid #223049;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.um-search-icon {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.um-search input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  width: 100%;
+}
+
+.um-search input::placeholder {
+  color: #5b6779;
+}
+
+.um-btn-add {
+  background: #1d4ed8;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.um-btn-add:hover {
+  background: #2563eb;
+}
+
+.um-error {
+  background: #3b1220;
+  border: 1px solid #7f1d1d;
+  color: #fca5a5;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.um-table-wrap {
+  background: #0e1626;
+  border: 1px solid #1c2740;
+  border-radius: 14px;
+  overflow: visible;
+}
+
+.um-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.um-table th {
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #93a2ba;
+  padding: 16px 20px;
+  border-bottom: 1px solid #1c2740;
+}
+
+.um-table td {
+  padding: 16px 20px;
+  font-size: 0.95rem;
+  border-bottom: 1px solid #16203590;
+  vertical-align: middle;
+}
+
+.um-table tr:last-child td {
+  border-bottom: none;
+}
+
+.um-email {
+  color: #9aa7bd;
+}
+
+.um-empty {
+  text-align: center;
+  color: #64748b;
+  padding: 32px 0 !important;
+}
+
+.um-role-badge {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.um-role-admin {
+  color: #7dd3fc;
+  border-color: #0e7490;
+  background: #0c2f3d;
+}
+
+.um-role-staff {
+  color: #86efac;
+  border-color: #15803d;
+  background: #0d2418;
+}
+
+.um-role-student {
+  color: #fde68a;
+  border-color: #a16207;
+  background: #2a2110;
+}
+
+.um-col-actions {
+  text-align: right;
+  width: 140px;
+}
+
+.um-actions-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.um-btn-edit {
+  background: #b45309;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.um-btn-edit:hover {
+  background: #c2670f;
+}
+
+.um-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #131e35;
+  border: 1px solid #263452;
+  border-radius: 10px;
+  min-width: 180px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+  overflow: hidden;
+  padding: 6px;
+}
+
+.um-dropdown-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  padding: 6px 10px 4px;
+}
+
+.um-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  padding: 8px 10px;
+  font-size: 0.88rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.um-dropdown-item:hover:not(:disabled) {
+  background: #1c2a45;
+}
+
+.um-dropdown-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.um-dropdown-danger {
+  color: #f87171;
+  margin-top: 4px;
+  border-top: 1px solid #223049;
+  border-radius: 0;
+  padding-top: 10px;
+}
+
+.um-dropdown-danger:hover {
+  background: #2a1216;
+}

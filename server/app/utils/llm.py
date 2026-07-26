@@ -6,43 +6,57 @@ LLM Generation Service
 2. สร้าง Prompt
 3. ส่งเข้า Ollama
 4. คืนคำตอบ
+
+v1.1: ปรับ prompt ให้ใช้ XML tags คั่น context/question แทน "=========="
+      และตัด similarity distance ออกจาก context ที่ส่งเข้า LLM
+      (distance เป็นเลขที่มีประโยชน์แค่ตอน debug ฝั่งเรา ไม่มีประโยชน์กับ LLM
+      เพราะมันไม่รู้ว่า 0.32 ถือว่าดีหรือแย่ มีแต่จะกินโทเค็นเปล่า ๆ)
 """
 
 import ollama
 from sqlalchemy.orm import Session
 
 from .retrieval import retrieve
+from app.prompts.rag_system_prompt import SYSTEM_PROMPT, PROMPT_VERSION
 
-SYSTEM_PROMPT = """
-คุณคือผู้ช่วยตอบคำถามของคณะวิทยาศาสตร์
-มหาวิทยาลัยสงขลานครินทร์
 
-หน้าที่ของคุณคือใช้เฉพาะข้อมูลใน Context เท่านั้น
+def _build_context_block(index: int, chunk) -> str:
+    """
+    สร้าง <context> block เดียว จาก 1 chunk ที่ retrieve มาได้
+    ใช้ XML tag แทนตัวคั่นแบบ "==========" เพื่อให้โมเดลแยกขอบเขต
+    ของแต่ละ context ได้ชัดเจนกว่า (โมเดลรู้ attribute source ได้ในตัว
+    โดยไม่ต้องเดาจากข้อความ)
 
-กฎที่ต้องปฏิบัติ
+    หมายเหตุ: ตั้งใจไม่ใส่ distance ที่นี่ เพราะเป็นเลขที่ไม่มีความหมาย
+    สำหรับ LLM ให้ใช้แค่ตอน debug/print ใน retrieval.py แทน
+    """
+    return (
+        f'<context index="{index}" source="{chunk.document_name}">\n'
+        f"{chunk.chunk_text}\n"
+        f"</context>"
+    )
 
-1. ห้ามใช้ความรู้ภายนอก
 
-2. ห้ามคาดเดา
+def _build_prompt(question: str, retrieved: list) -> str:
+    """
+    ประกอบ context blocks + คำถาม เข้าเป็น prompt เดียว
+    แยกฟังก์ชันออกมาจาก generate_answer เพื่อให้ทดสอบ/ปรับ format
+    ได้อิสระโดยไม่กระทบ logic การเรียก ollama
+    """
+    context = "\n\n".join(
+        _build_context_block(i, chunk) for i, chunk in enumerate(retrieved, start=1)
+    )
 
-3. ถ้า Context ไม่มีคำตอบ
-ตอบว่า
+    return f"""<context_documents>
+{context}
+</context_documents>
 
-"ไม่พบข้อมูลนี้ในระบบ"
+<question>
+{question}
+</question>
 
-4. ถ้ามีหลาย Context
-ให้นำข้อมูลมาสรุปรวม
-
-5. ถ้ามีข้อมูลขัดแย้งกัน
-ให้แจ้งว่าพบข้อมูลไม่ตรงกัน
-
-6. ถ้าคำถามต้องการตัวเลข
-ให้ใช้ตัวเลขตาม Context เท่านั้น
-
-7. ตอบเป็นภาษาไทยที่สุภาพ กระชับ และเข้าใจง่าย
-
-8. ไม่ต้องบอกว่า "จากข้อมูลที่ได้รับ"
-ตอบคำถามได้เลย
+Answer the question using only the information inside <context_documents>.
+If the answer is not there, respond exactly: "ไม่พบข้อมูลนี้ในระบบ"
 """
 
 
@@ -54,49 +68,65 @@ def generate_answer(
     retrieved=None,
 ) -> str:
 
+    # -------------------------
+    # Retrieval
+    # -------------------------
+
     if retrieved is None:
-        retrieved = retrieve(db, question, k=k)
+        retrieved = retrieve(
+            db,
+            question,
+            k=k,
+        )
 
     if not retrieved:
         return "ไม่พบข้อมูลนี้ในระบบ"
 
-    # เปลี่ยนจาก "Context 1/2/3" เป็นแค่บรรทัดคั่นเอกสารเฉยๆ
-    # กัน LLM หยิบคำว่า "Context" ไปพูดในคำตอบ (ตามกฎข้อ 8 ที่ห้ามบอกที่มา)
-    context_parts = []
-    for chunk in retrieved:
-        context_parts.append(f"[{chunk.document_name}] {chunk.chunk_text}")
+    # -------------------------
+    # Build Prompt
+    # -------------------------
 
-    context = "\n\n".join(context_parts)
+    prompt = _build_prompt(question, retrieved)
 
-    prompt = f"""
-ข้อมูลอ้างอิง:
+    # -------------------------
+    # Debug
+    # -------------------------
 
-{context}
-
---------------------------------
-
-คำถาม: {question}
-
---------------------------------
-
-ตอบคำถามจากข้อมูลอ้างอิงข้างต้นเท่านั้น ห้ามพูดถึงคำว่า "ข้อมูลอ้างอิง" หรือบอกที่มาของข้อมูลในคำตอบ
-ถ้าไม่พบคำตอบ ให้ตอบว่า "ไม่พบข้อมูลนี้ในระบบ" ห้ามเดา
-"""
-
-    print("\n================ PROMPT ================\n")
+    print(f"\n================ PROMPT ({PROMPT_VERSION}) ================\n")
     print(prompt)
     print("\n========================================\n")
 
+    # -------------------------
+    # Generate
+    # -------------------------
+
     try:
+
         response = ollama.chat(
             model=model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
             ],
-            options={"temperature": 0, "top_p": 0.9, "num_predict": 512},
+            options={
+                "temperature": 0,
+                "top_p": 0.9,
+                "num_predict": 512,
+            },
         )
-        return response["message"]["content"].strip()
+
+        answer = response["message"]["content"].strip()
+
+        return answer
+
     except Exception as exc:
+
         print(f"[LLM ERROR] {exc}")
+
         return "ขออภัย ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง"
