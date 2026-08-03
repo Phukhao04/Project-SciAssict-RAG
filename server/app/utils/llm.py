@@ -130,3 +130,18 @@ def generate_answer(
         print(f"[LLM ERROR] {exc}")
 
         return "ขออภัย ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง"
+    
+def _build_context_block(index: int, chunk) -> str:
+    """
+    สร้าง <context> block เดียว จาก 1 chunk ที่ retrieve มาได้
+
+    เปลี่ยนจาก v2: ใช้ chunk.parent_text แทน chunk.chunk_text
+    เหตุผล: chunk_text คือ child ที่ใช้ตอนค้นหาเท่านั้น (เล็ก อาจขาดบริบท)
+    ส่วน parent_text คือทั้ง section ที่ child นั้นสังกัดอยู่ -> ให้ LLM
+    มีบริบทพอจะตอบคำถามได้ครบถ้วนกว่าเดิม
+    """
+    return (
+        f'<context index="{index}" source="{chunk.document_name}">\n'
+        f"{chunk.parent_text}\n"
+        f"</context>"
+    )

@@ -48,12 +48,12 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     """
-    รับไฟล์ PDF/Word โดยตรง -> extract text -> hierarchical_chunk -> embed -> insert
-    ทำไมไม่ส่ง level_patterns เข้ามาตอนนี้: endpoint นี้ยังเป็นแบบ "ทั่วไป"
-    (ไม่รู้โครงสร้างเอกสารล่วงหน้า) จึงปล่อยให้ hierarchical_chunk ถอยไปทำงาน
-    แบบ recursive_split เพียงอย่างเดียว เหมือน text ธรรมดา
-    ถ้าจะรองรับเอกสารมีโครงสร้างเฉพาะ (เช่น หลักสูตร) ค่อยทำ endpoint แยกที่รับ
-    level_patterns หรือเดาประเภทเอกสารจาก document_name/content ในอนาคต
+    รับไฟล์ PDF/Word โดยตรง -> extract (ได้ list ของ (heading_level, text))
+    -> chunk_by_headings (v2: ใช้ Heading Style จริงจาก Word แทน regex เดา) -> embed -> insert
+
+    หมายเหตุ: extract_text() คืนค่าเป็น list[(heading_level, text)] เสมอ
+    ไฟล์ .docx จะมี heading_level จาก Heading Style ที่ผู้ใช้เลือกไว้ใน Word จริงๆ
+    ส่วนไฟล์ .pdf จะได้ heading_level=None ทุกบรรทัด (PDF ไม่มี style ให้อ่าน)
     """
     file_bytes = await file.read()
     size_mb = len(file_bytes) / (1024 * 1024)
@@ -63,11 +63,13 @@ async def upload_document(
         )
 
     try:
-        full_text = extract_text(file.filename, file_bytes)
+        paragraphs = extract_text(file.filename, file_bytes)
     except UnsupportedFileTypeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    if not full_text.strip():
+    # เช็คว่ามีข้อความจริงอยู่บ้างไหม (กันไฟล์สแกน/รูปภาพที่ extract แล้วว่างเปล่า)
+    has_text = any(t.strip() for _, t in paragraphs)
+    if not has_text:
         raise HTTPException(
             status_code=400,
             detail="ไม่พบข้อความในไฟล์ (อาจเป็นไฟล์สแกน/รูปภาพ ที่ต้องใช้ OCR)",
@@ -78,7 +80,7 @@ async def upload_document(
     try:
         result = ingest_document(
             db,
-            full_text=full_text,
+            paragraphs=paragraphs,
             document_name=document_name,
             document_type=document_type,
             category_id=category_id,
@@ -111,10 +113,19 @@ def get_document(document_id: int, db: Session = Depends(get_db)):
 
 @router.post("/documents/ingest", response_model=IngestResponse)
 def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
+    """
+    รับ text ดิบๆ ตรงๆ (ไม่ใช่ไฟล์) -> ไม่มี heading style ให้อ่าน
+    เลยแปลงเป็น list[(None, บรรทัด)] ทุกบรรทัด แล้วส่งเข้า ingest_document
+    ตัวเดียวกับ endpoint upload เพื่อให้ทั้งระบบ chunk ด้วยตรรกะเดียวกันเสมอ
+    """
+    paragraphs = [
+        (None, line) for line in payload.text.split("\n") if line.strip()
+    ]
+
     try:
         result = ingest_document(
             db,
-            full_text=payload.text,
+            paragraphs=paragraphs,
             document_name=payload.document_name,
             document_type=payload.document_type,
             category_id=payload.category_id,

@@ -382,3 +382,23 @@
   opacity: 0.85;
   margin-bottom: 4px;
 }   
+
+/* ปุ่มไปหน้า Admin ใน sidebar ให้หน้าตาคล้าย new-chat-btn แต่สีต่างกันนิดหน่อย
+   เพื่อบอกว่าเป็นคนละหมวด (new-chat = action ในหน้านี้, admin-link = สลับไปอีกโซน) */
+.admin-link-btn {
+  width: 100%;
+  padding: 10px 12px;
+  background-color: transparent;
+  border: 1px solid #2a3652;
+  border-radius: 10px;
+  color: #7fa8d9;
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.admin-link-btn:hover {
+  background-color: #16223b;
+  color: #9fc0ea;
+}

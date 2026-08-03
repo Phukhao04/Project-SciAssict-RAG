@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../hooks/useAuth'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 
 import './Admin.css'
@@ -21,9 +19,6 @@ function Dashboard() {
 
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
-
-  const navigate = useNavigate()
-  const { user } = useAuth()
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -103,16 +98,7 @@ function Dashboard() {
 
       <main className="admin-main">
         <div className="admin-content">
-          <div className="admin-topbar">
-            <h1>ภาพรวมระบบ</h1>
-
-            {user?.role_id === 'R01' && (
-              <button className="switch-page-btn" onClick={() => navigate('/')}>
-                Chat Page
-              </button>
-            )}
-          </div>
-
+          <h1>ภาพรวมระบบ</h1>
           {loadError && (
             <p className="error-message" style={{ color: 'red' }}>
               {loadError}

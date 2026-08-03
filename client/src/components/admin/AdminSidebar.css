@@ -51,3 +51,96 @@
   background-color: #1a4d3d;
   color: #34c799;
 }
+
+/* ทำให้ sidebar แบ่งครึ่งบน (เมนู) กับครึ่งล่าง (user+logout) แบบเดียวกับ Chat.css
+   ของเดิม .admin-sidebar เป็น block ธรรมดา เนื้อหาล้วนชิดบน ต้องเปลี่ยนเป็น flex column
+   แล้วดัน .admin-sidebar-user-wrap ไปอยู่ล่างสุดด้วย justify-content: space-between */
+.admin-sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.admin-sidebar-top {
+  overflow-y: auto;
+}
+
+/* ปุ่ม "กลับหน้าแชท" ให้ดูต่างจากเมนูปกตินิดหน่อย (สีอ่อนกว่า) เพราะเป็นทางออกจากโซน admin
+   ไม่ใช่หน้าในหมวดเดียวกัน ผู้ใช้ควรรู้สึกว่ามันคือ "ประตูออก" ไม่ใช่เมนูย่อย */
+.admin-menu-item-back {
+  color: #7fa8d9;
+}
+
+.admin-menu-item-back:hover {
+  background-color: #16223b;
+  color: #9fc0ea;
+}
+
+/* ===== ส่วนล่าง: user + logout (พฤติกรรม/หน้าตาเดียวกับ Chat.css .sidebar-user-wrap) ===== */
+
+.admin-sidebar-user-wrap {
+  position: relative;
+  border-top: 1px solid #24304a;
+  margin-top: 12px;
+}
+
+.admin-sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 4px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.admin-sidebar-user:hover {
+  background-color: #16223b;
+}
+
+.admin-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #34c799;
+  color: #0b1120;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-user-name {
+  color: #e8edf5;
+  font-size: 13px;
+  margin: 0;
+}
+
+.admin-user-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  background-color: #16223b;
+  border: 1px solid #2a3652;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.admin-user-menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: #ff8a8a;
+  font-size: 13px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.admin-user-menu-item:hover {
+  background-color: #1c2b47;
+}
