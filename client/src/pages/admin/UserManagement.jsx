@@ -4,16 +4,34 @@ import AdminSidebar from '../../components/admin/AdminSidebar'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-// ดึง current user จาก token/localStorage ที่เก็บไว้ตอน login (authService.js เดิม)
+// แก้จากเดิมที่อ่าน key "user_id" ตรงๆ (ไม่เคยมีการ set key นี้จริง)
+// AuthContext.jsx เก็บ user ทั้งก้อนเป็น JSON ไว้ที่ key "user" เท่านั้น
+// ของเดิมจะได้ null เสมอ ทำให้ isSelf เป็น false ตลอด (admin ลบ/เปลี่ยน role ตัวเองได้โดยไม่ถูกกัน)
 function getCurrentUserId() {
-  const raw = localStorage.getItem("user_id");
-  return raw ? Number(raw) : null;
+  const raw = localStorage.getItem("user");
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.user_id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function authHeaders() {
   const token = localStorage.getItem("access_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
+
+// map role_id จริง (R01, R02, ...) ไปเป็น class สี badge
+// แยกออกมาจาก role_id ตรงๆ เพราะ role_id ในอนาคตอาจเพิ่ม R03, R04
+// โดยไม่ต้องมาคอยเดา CSS class ชื่อใหม่ทุกครั้ง ถ้า role ไหนไม่รู้จัก fallback เป็นสีเทากลาง
+const ROLE_BADGE_CLASS = {
+  R01: "um-role-admin",
+  R02: "um-role-student",
+};
+
+// ดึง current user จาก token/localStorage ที่เก็บไว้ตอน login (authService.js เดิม)
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -28,7 +46,9 @@ export default function UserManagement() {
   const currentUserId = getCurrentUserId();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     fetchUsers();
+    // eslint-disable-next-line react-hooks/immutability
     fetchRoles();
   }, []);
 
@@ -87,7 +107,8 @@ export default function UserManagement() {
     setOpenMenuId(null);
 
     // การให้สิทธิ์ admin เป็นการกระทำที่มีผลกระทบสูง ต้อง confirm ชัดเจนก่อนเสมอ
-    if (newRoleId === "admin") {
+    // แก้จาก newRoleId === "admin" เป็น "R01" ให้ตรงกับ role_id จริงใน DB
+    if (newRoleId === "R01") {
       const confirmed = window.confirm(
         `ยืนยันให้สิทธิ์ "ผู้ดูแลระบบ" แก่ "${displayName}" ?\nผู้ใช้นี้จะสามารถจัดการผู้ใช้อื่นและข้อมูลทั้งระบบได้`
       );
@@ -175,7 +196,7 @@ export default function UserManagement() {
                 <input
                   type="text"
                   aria-label="ค้นหาผู้ใช้"
-                  placeholder="ค้นหาชื่อหรือรหัสนักศึกษา..."
+                  placeholder="ค้นหาชื่อ..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -209,13 +230,15 @@ export default function UserManagement() {
                     filteredUsers.map((u) => {
                       const isSelf = u.user_id === currentUserId;
                       const isUpdating = updatingUserId === u.user_id;
+                      // fallback "um-role-default" กันกรณี role_id ใหม่ในอนาคตที่ยังไม่ได้ทำสีไว้
+                      const badgeClass = ROLE_BADGE_CLASS[u.role_id] ?? "um-role-default";
 
                       return (
                         <tr key={u.user_id}>
                           <td>{u.firstname} {u.lastname}</td>
                           <td className="um-email">{u.username}</td>
                           <td>
-                            <span className={`um-role-badge um-role-${u.role_id}`}>
+                            <span className={`um-role-badge ${badgeClass}`}>
                               {u.role_name}
                             </span>
                           </td>

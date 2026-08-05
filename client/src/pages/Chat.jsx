@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
 import './Chat.css'
 
-const suggestionCards = [
-  'อาจารย์ประจำหลักสูตร ICT มีใครบ้าง',
-  'วิชาเลือกเสรีที่เปิดรับในเทอม 2 ปี 2569 มีอะไรบ้าง',
-  'หลักสูตร ICT มีหน่วยกิตรวมเท่าไหร่',
-  'วิชาที่เปิดสอนในหลักสูตร ICT มีอะไรบ้าง',
-]
+// const suggestionCards = [
+//   'อาจารย์ประจำหลักสูตร ICT มีใครบ้าง',
+//   'วิชาเลือกเสรีที่เปิดรับในเทอม 2 ปี 2569 มีอะไรบ้าง',
+//   'หลักสูตร ICT มีหน่วยกิตรวมเท่าไหร่',
+//   'วิชาที่เปิดสอนในหลักสูตร ICT มีอะไรบ้าง',
+// ]
 
 function Chat() {
   const { user, setUser } = useAuth()
@@ -22,11 +22,19 @@ function Chat() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [isSending, setIsSending] = useState(false)
 
+  const messagesEndRef = useRef(null)
+
   // โหลด session list ตอนเปิดหน้าครั้งแรก
   useEffect(() => {
     if (!user?.user_id) return
     getSessions(user.user_id).then(setSessions)
   }, [user?.user_id])
+
+  // เลื่อนไปล่างสุดอัตโนมัติทุกครั้งที่มีข้อความใหม่ (ทั้งของ user และ bot)
+  // รวมถึงตอน isSending เปลี่ยน (โชว์ bubble "กำลังค้นหาคำตอบ...")
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatHistory, isSending])
 
   const handleSessionClick = async (sessionId) => {
     setActiveSessionId(sessionId)
@@ -75,9 +83,9 @@ function Chat() {
     }
   }
 
-  const handleSuggestionClick = (text) => {
-    setMessage(text)
-  }
+  // const handleSuggestionClick = (text) => {
+  //   setMessage(text)
+  // }
 
   const handleNewChat = () => {
     // ไม่ยิง API ตรงนี้ -- รอจนกว่าจะพิมพ์คำถามแรกจริง backend ถึงจะสร้าง session ให้เอง
@@ -110,6 +118,16 @@ function Chat() {
           <button className="new-chat-btn" onClick={handleNewChat}>
             + สนทนาใหม่
           </button>
+
+          {/* ย้ายปุ่มสลับไปหน้า Admin มาไว้ที่นี่ (เดิมอยู่ใน chat-header ขวาบน)
+              เพื่อให้ตำแหน่ง "สลับหน้า" อยู่โซน navigation ของ sidebar เหมือนกับ
+              ปุ่ม "กลับหน้าแชท" ที่ฝั่ง AdminSidebar ผู้ใช้จะเจอปุ่มสลับหน้าที่ตำแหน่ง
+              เดียวกันเสมอไม่ว่าจะอยู่หน้าไหน (positional consistency) */}
+          {isAdmin && (
+            <button className="admin-link-btn" onClick={() => navigate('/admin')}>
+              ⚙ ไปหน้า Admin
+            </button>
+          )}
 
           <p className="sidebar-label">ล่าสุด</p>
 
@@ -147,34 +165,21 @@ function Chat() {
       <main className="chat-main">
         <div className="chat-header">
           <span className="version-tag">RAG v1.0</span>
-
-          <div className="header-right">
-            {isAdmin && (
-              <button
-                className="switch-page-btn"
-                onClick={() => navigate('/admin')}
-              >
-                Admin Page
-              </button>
-            )}
-
-            <div className="header-avatar">{avatarLetter}</div>
-          </div>
         </div>
 
         {!hasMessages ? (
           <div className="chat-welcome">
             <div className="chat-logo">🤖</div>
             <h2>สนทนาใหม่</h2>
-            <p>ถามข้อมูลเกี่ยวกับหลักสูตร อาจารย์ หรือตารางเรียนได้เลยครับ</p>
+            <p>ถามข้อมูลเกี่ยวกับคณะวิทยาศาสตร์ หลักสูตร หรืออาจารย์</p>
 
-            <div className="suggestion-grid">
+            {/* <div className="suggestion-grid">
               {suggestionCards.map((text, i) => (
                 <button key={i} className="suggestion-card" onClick={() => handleSuggestionClick(text)}>
                   {text}
                 </button>
               ))}
-            </div>
+            </div> */}
           </div>
         ) : (
           <div className="chat-messages">
@@ -184,6 +189,7 @@ function Chat() {
               </div>
             ))}
             {isSending && <div className="bubble bot-bubble bubble-loading">กำลังค้นหาคำตอบ...</div>}
+            <div ref={messagesEndRef} />
           </div>
         )}
 

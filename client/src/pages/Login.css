@@ -1,25 +1,30 @@
 .login-page {
   min-height: 100vh;
-  min-height: 100dvh; /* fallback สำหรับมือถือที่ address bar ยุบ/ขยาย */
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #0b1120;
+
+  background-image: url("../assets/BG.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center center;
+
   padding: 24px;
 }
 
 .login-card {
   width: 100%;
   max-width: 480px;
-  background-color: #111a2e;
-  border: 1px solid #24304a;
+  background-color: #ffffff;
+  border: 1px solid #e6dab8;
   border-radius: 16px;
   padding: 40px 40px 48px;
   text-align: center;
 }
 
 .login-title {
-  color: #cfe0ff;
+  color: #2b2620;
   font-size: 28px;
   font-weight: 600;
   margin: 0 0 8px;
@@ -31,7 +36,7 @@
 
 .field-label {
   display: block;
-  color: #b9c6dc;
+  color: #6b5f4f;
   font-size: 14px;
   margin-bottom: 8px;
 }
@@ -39,18 +44,18 @@
 .login-form input {
   width: 100%;
   box-sizing: border-box;
-  background-color: #16223b;
-  border: 1px solid #2a3652;
+  background-color: #f4ecd8;
+  border: 1px solid #e6dab8;
   border-radius: 10px;
   padding: 14px 16px;
-  color: #e8edf5;
+  color: #2b2620;
   font-size: 15px;
   margin-bottom: 20px;
   outline: none;
 }
 
 .login-form input:focus {
-  border-color: #34c799;
+  border-color: #c99a2e;
 }
 
 .password-wrapper {
@@ -70,22 +75,22 @@
 .submit-btn {
   width: 100%;
   padding: 15px;
-  background-color: #34c799;
+  background-color: #c99a2e;
   border: none;
   border-radius: 10px;
-  color: #0b1120;
+  color: #2b2620;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .submit-btn:hover {
-  background-color: #2bb389;
+  background-color: #a67c1f;
 }
 
 .login-tabs {
   display: flex;
-  border: 1px solid #2a3652;
+  border: 1px solid #e6dab8;
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 24px;
@@ -96,14 +101,14 @@
   padding: 12px;
   background: transparent;
   border: none;
-  color: #9fb0cc;
+  color: #948a76;
   font-size: 15px;
   cursor: pointer;
 }
 
 .tab.active {
-  background-color: #34c799;
-  color: #0b1120;
+  background-color: #c99a2e;
+  color: #2b2620;
   font-weight: 600;
 }
 

@@ -1,6 +1,12 @@
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+# role_id จริงในตาราง role คือ R01=admin, R02=student
+# ตั้งเป็นค่าคงที่ตรงนี้แทน hardcode string "admin" ตรงๆ
+# เพราะก่อนหน้านี้โค้ดเทียบกับ role_id = 'admin' ซึ่งไม่มีอยู่จริงใน DB
+# ทำให้ logic ป้องกัน "ลบ/ลด role admin คนสุดท้าย" ไม่เคยทำงานเลย
+ADMIN_ROLE_ID = "R01"
+
 
 def get_all_users(db: Session) -> list[dict]:
     # JOIN ตาราง role เพื่อดึง role_name จริงมาแสดง แทนการ hardcode ฝั่ง frontend
@@ -35,15 +41,17 @@ def get_all_roles(db: Session) -> list[dict]:
 
 
 def _count_admins(db: Session) -> int:
+    # แก้จาก role_id = 'admin' (ค่าที่ไม่มีจริงใน DB) เป็น ADMIN_ROLE_ID = 'R01'
     return db.execute(
-        text("SELECT COUNT(*) FROM user WHERE role_id = 'admin'")
+        text("SELECT COUNT(*) FROM user WHERE role_id = :admin_role"),
+        {"admin_role": ADMIN_ROLE_ID},
     ).scalar() or 0
 
 
 def update_user_role(db: Session, user_id: int, role_id: str) -> bool:
     """
     คืนค่า True ถ้าสำเร็จ, False ถ้าไม่พบ user
-    Raise ValueError ถ้าเป็นการลด role คนที่เป็น admin คนสุดท้ายในระบบ
+    Raise ValueError ถ้าเป็นการลด role คนที่เป็น admin (R01) คนสุดท้ายในระบบ
     (ต้องเช็คก่อน UPDATE จริง ไม่งั้นระบบจะไม่มี admin เหลือเลย
     และไม่มีทาง recover ผ่าน UI ต้องเข้าไปแก้ SQL ตรงๆ)
     """
@@ -53,7 +61,8 @@ def update_user_role(db: Session, user_id: int, role_id: str) -> bool:
     if row is None:
         return False
 
-    if row.role_id == "admin" and role_id != "admin":
+    # แก้จาก "admin" เป็น ADMIN_ROLE_ID ทั้งสองฝั่งของเงื่อนไข
+    if row.role_id == ADMIN_ROLE_ID and role_id != ADMIN_ROLE_ID:
         if _count_admins(db) <= 1:
             raise ValueError("ไม่สามารถลดสิทธิ์ได้ เนื่องจากเป็นผู้ดูแลระบบคนสุดท้ายในระบบ")
 
@@ -75,7 +84,7 @@ def update_user_role(db: Session, user_id: int, role_id: str) -> bool:
 def delete_user(db: Session, user_id: int) -> bool:
     """
     คืนค่า True ถ้าสำเร็จ, False ถ้าไม่พบ user
-    Raise ValueError ถ้าจะลบ admin คนสุดท้ายในระบบ
+    Raise ValueError ถ้าจะลบ admin (R01) คนสุดท้ายในระบบ
     """
     row = db.execute(
         text("SELECT role_id FROM user WHERE user_id = :id"), {"id": user_id}
@@ -83,7 +92,8 @@ def delete_user(db: Session, user_id: int) -> bool:
     if row is None:
         return False
 
-    if row.role_id == "admin" and _count_admins(db) <= 1:
+    # แก้จาก "admin" เป็น ADMIN_ROLE_ID
+    if row.role_id == ADMIN_ROLE_ID and _count_admins(db) <= 1:
         raise ValueError("ไม่สามารถลบผู้ใช้ได้ เนื่องจากเป็นผู้ดูแลระบบคนสุดท้ายในระบบ")
 
     # ลบแถวที่มี FK ชี้มาที่ user_id ก่อนเสมอ (messages, chatsession, document_chunk, document)
