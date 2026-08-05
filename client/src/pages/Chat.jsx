@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
@@ -22,11 +22,19 @@ function Chat() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [isSending, setIsSending] = useState(false)
 
+  const messagesEndRef = useRef(null)
+
   // โหลด session list ตอนเปิดหน้าครั้งแรก
   useEffect(() => {
     if (!user?.user_id) return
     getSessions(user.user_id).then(setSessions)
   }, [user?.user_id])
+
+  // เลื่อนไปล่างสุดอัตโนมัติทุกครั้งที่มีข้อความใหม่ (ทั้งของ user และ bot)
+  // รวมถึงตอน isSending เปลี่ยน (โชว์ bubble "กำลังค้นหาคำตอบ...")
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatHistory, isSending])
 
   const handleSessionClick = async (sessionId) => {
     setActiveSessionId(sessionId)
@@ -181,6 +189,7 @@ function Chat() {
               </div>
             ))}
             {isSending && <div className="bubble bot-bubble bubble-loading">กำลังค้นหาคำตอบ...</div>}
+            <div ref={messagesEndRef} />
           </div>
         )}
 

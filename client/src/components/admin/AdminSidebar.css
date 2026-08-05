@@ -1,27 +1,27 @@
 .admin-sidebar {
   width: 240px;
-  background-color: #0f1729;
-  border-right: 1px solid #24304a;
+  background-color: #ffffff;
+  border-right: 1px solid #e6dab8;
   padding: 16px;
-  color: #b9c6dc;
+  color: #6b5f4f;
 }
 
 .admin-brand {
-  color: #cfe0ff;
+  color: #2b2620;
   font-size: 16px;
   font-weight: 600;
   margin: 0;
 }
 
 .admin-brand-sub {
-  color: #5f7091;
+  color: #948a76;
   font-size: 12px;
   margin: 0 0 24px;
 }
 
 .sidebar-group-label {
   font-size: 11px;
-  color: #5f7091;
+  color: #948a76;
   letter-spacing: 0.5px;
   margin: 20px 0 8px 4px;
 }
@@ -40,16 +40,16 @@
   cursor: pointer;
   margin-bottom: 4px;
   text-decoration: none;
-  color: #b9c6dc;
+  color: #6b5f4f;
 }
 
 .admin-menu-item:hover {
-  background-color: #16223b;
+  background-color: #f4ecd8;
 }
 
 .admin-menu-item.active {
-  background-color: #1a4d3d;
-  color: #34c799;
+  background-color: #f0e4c0;
+  color: #7a5c14;
 }
 
 /* ทำให้ sidebar แบ่งครึ่งบน (เมนู) กับครึ่งล่าง (user+logout) แบบเดียวกับ Chat.css
@@ -68,19 +68,19 @@
 /* ปุ่ม "กลับหน้าแชท" ให้ดูต่างจากเมนูปกตินิดหน่อย (สีอ่อนกว่า) เพราะเป็นทางออกจากโซน admin
    ไม่ใช่หน้าในหมวดเดียวกัน ผู้ใช้ควรรู้สึกว่ามันคือ "ประตูออก" ไม่ใช่เมนูย่อย */
 .admin-menu-item-back {
-  color: #7fa8d9;
+  color: #8a6d3f;
 }
 
 .admin-menu-item-back:hover {
-  background-color: #16223b;
-  color: #9fc0ea;
+  background-color: #f4ecd8;
+  color: #6b5027;
 }
 
 /* ===== ส่วนล่าง: user + logout (พฤติกรรม/หน้าตาเดียวกับ Chat.css .sidebar-user-wrap) ===== */
 
 .admin-sidebar-user-wrap {
   position: relative;
-  border-top: 1px solid #24304a;
+  border-top: 1px solid #e6dab8;
   margin-top: 12px;
 }
 
@@ -94,15 +94,15 @@
 }
 
 .admin-sidebar-user:hover {
-  background-color: #16223b;
+  background-color: #f4ecd8;
 }
 
 .admin-user-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: #34c799;
-  color: #0b1120;
+  background-color: #c99a2e;
+  color: #2b2620;
   font-weight: 700;
   font-size: 13px;
   display: flex;
@@ -112,7 +112,7 @@
 }
 
 .admin-user-name {
-  color: #e8edf5;
+  color: #2b2620;
   font-size: 13px;
   margin: 0;
 }
@@ -122,12 +122,12 @@
   bottom: 100%;
   left: 0;
   right: 0;
-  background-color: #16223b;
-  border: 1px solid #2a3652;
+  background-color: #ffffff;
+  border: 1px solid #e6dab8;
   border-radius: 10px;
   margin-bottom: 6px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .admin-user-menu-item {
@@ -135,12 +135,12 @@
   text-align: left;
   background: transparent;
   border: none;
-  color: #ff8a8a;
+  color: #a13a2e;
   font-size: 13px;
   padding: 12px 14px;
   cursor: pointer;
 }
 
 .admin-user-menu-item:hover {
-  background-color: #1c2b47;
+  background-color: #fbe9e7;
 }
