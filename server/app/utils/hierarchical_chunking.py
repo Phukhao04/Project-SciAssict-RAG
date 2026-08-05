@@ -1,25 +1,27 @@
 """
 Header-based Parent-Child Chunking
 ====================================
-v3: เพิ่มชั้น "Parent-Child" ต่อยอดจาก v2 (header-based)
+v4: แก้ปัญหา "แถวตารางถูกผสมปนกันข้ามรายวิชา" ที่เจอจริงจากการทดสอบ
+(308-232 ไปโดนดึงไปติดกับชื่อวิชาของ 308-331 เพราะทั้งคู่ถูก pack รวม
+ก้อนเดียวกันตามจำนวนตัวอักษร โดยไม่สนว่าเป็นคนละ record/รายวิชากัน)
 
-ปัญหาที่ v2 ยังมี: chunk 1 ก้อน ต้องทำหน้าที่ 2 อย่างพร้อมกัน
-1. เป็นตัวแทนสำหรับ "ค้นหา" (embed แล้ววัด cosine similarity)
-2. เป็น "เนื้อหา" ที่ส่งให้ LLM อ่านตอบคำถาม
+ต้นตอ: recursive_split() (ผ่าน _pack_units) ตัด/รวม "หน่วยข้อความ"
+(ประโยค) เข้าด้วยกันตามจำนวนตัวอักษรล้วนๆ ไม่รู้จัก concept ของ "แถว
+ตาราง 1 แถว = 1 record ที่ห้ามผสมกับ record อื่น" เลย เพราะเดิมออกแบบ
+มาสำหรับ prose (ที่การ pack ประโยคติดกันเป็นเรื่องดี ให้บริบทมากขึ้น)
+ไม่ได้ออกแบบมาสำหรับข้อมูลตาราง (ที่การ pack ข้าม record เป็นเรื่องเสีย)
 
-ถ้า chunk เล็ก -> embed แม่น (โฟกัสเรื่องเดียว) แต่ LLM ได้บริบทไม่พอตอบ
-ถ้า chunk ใหญ่ -> LLM มีบริบทพอ แต่ embed ปนหลายเรื่อง วัด similarity ไม่แม่น
+ทางแก้ (v4): เพิ่ม _split_preserving_rows() เป็นตัวเลือกใหม่ที่ใช้แทน
+recursive_split() เฉพาะตอนตัด parent และตัด child เท่านั้น (2 จุดที่
+เดิมเรียก recursive_split ตรงๆ) กติกา:
+    - บรรทัดที่มาจากแถวตาราง (ตรวจด้วย ROW_MARKER) -> เป็น 1 unit เดี่ยว
+      เสมอ ห้ามถูกดึงไปรวมกับแถวตารางอื่น
+    - บรรทัด prose ธรรมดา -> ยัง pack รวมกันได้ตามปกติ (ไม่กระทบ
+      พฤติกรรมเดิมสำหรับเอกสารที่เป็นข้อความบรรยาย)
+ไม่ต้องมี DB table ใหม่ ไม่ต้อง retrieval path ใหม่ - ยังใช้
+ParentChunk/ChildChunk เดิมทั้งหมด แค่เปลี่ยนวิธี "ตัด" เท่านั้น
 
-วิธีแก้ (Small-to-Big / Parent-Child retrieval):
-แยกหน้าที่ 2 อย่างออกจากกัน เก็บข้อมูล 2 ระดับ
-- Parent: หน่วยใหญ่ (คือ section ใต้ heading หนึ่งๆ) -> เก็บไว้ "ให้ LLM อ่าน" ตอนตอบ
-- Child : หน่วยเล็ก (ตัด parent ซ้ำอีกที) -> เอาไป "embed + ค้นหา" เท่านั้น
-
-ตอน retrieve: ค้นด้วย child embedding (แม่น เพราะเล็กโฟกัส)
-             แต่ส่ง parent.text กลับไปให้ LLM อ่าน (มีบริบทครบกว่า)
-
-อ้างอิง: Anthropic - "Contextual Retrieval" แนวคิดเรื่องแยก unit สำหรับ index
-กับ unit สำหรับ generation, และ Small-to-Big Retrieval (LlamaIndex/Vectara)
+อ้างอิง: Anthropic - "Contextual Retrieval", Small-to-Big Retrieval
 https://www.anthropic.com/engineering/contextual-retrieval
 """
 
@@ -42,9 +44,13 @@ class ChildChunk:
     path: tuple
 
 
-# ---------- Recursive splitter (ตัวสำรอง/ตัวตัดย่อย ใช้ร่วมกันทั้ง 2 ระดับ) ----------
-# ส่วนนี้ไม่เปลี่ยนจาก v2 เลย ใช้ตรรกะเดียวกันทั้งตอนตัด parent และตอนตัด child
-# (parent เรียกด้วย max_chars ก้อนใหญ่, child เรียกด้วย max_chars ก้อนเล็ก)
+# ตัวคั่นระหว่าง cell ในแถวตาราง (ต้องตรงกับที่ extraction.py ใช้ตอน
+# join cell ในแถวเดียวกัน) เลือกอักขระนี้เพราะแทบไม่มีทางปรากฏในเนื้อหา
+# จริงโดยบังเอิญ - ใช้เป็น "ป้ายบอก" ว่าบรรทัดนี้มาจากแถวตาราง ไม่ใช่ prose
+ROW_MARKER = "┃"
+
+
+# ---------- Recursive splitter (ตัวสำรอง/ตัวตัดย่อย สำหรับ prose) ----------
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -65,17 +71,7 @@ def _split_sentences(text: str) -> list[str]:
 def _pack_units(
     units: list[str], max_chars: int, overlap_chars: int, joiner: str = " "
 ) -> list[str]:
-    """
-    รวม 'หน่วยข้อความ' (ประโยคหรือคำ) เข้าด้วยกันจนใกล้ max_chars แล้วเว้น overlap ให้ก้อนถัดไป
-
-    v3.2: แก้บั๊ก "ไม่เช็คซ้ำหลัง reset overlap" — เดิมพอ flush แล้วตั้ง current
-    เป็น overlap ของก้อนก่อน จะ append unit ใหม่เข้าไปทันทีโดยไม่เช็คว่า
-    overlap + unit ใหม่ ยังเกิน max_chars อยู่หรือเปล่า ทำให้บางก้อนบวมเกิน
-    limit ไปเล็กน้อย แล้วไปโดน _hard_split (ตัดดิบตามตัวอักษร ไม่สนขอบเขตคำ)
-    ที่ชั้นถัดไป ผลคือคำ/อีเมลถูกตัดขาดกลางคำได้ -> แก้โดยเช็คซ้ำหลัง reset:
-    ถ้า overlap + unit ใหม่ยังเกิน max_chars อยู่ดี ให้ทิ้ง overlap ไปเลย
-    (ยอมเสีย context ต่อเนื่องเล็กน้อย ดีกว่าปล่อยให้ก้อนบวมจนโดนตัดมั่ว)
-    """
+    """รวม 'หน่วยข้อความ' เข้าด้วยกันจนใกล้ max_chars แล้วเว้น overlap ให้ก้อนถัดไป"""
     pieces: list[str] = []
     current: list[str] = []
     current_len = 0
@@ -83,7 +79,6 @@ def _pack_units(
     for unit in units:
         u_len = len(unit)
 
-        # หน่วยเดี่ยวยาวเกิน max_chars เอง (ประโยคไทยยาวไม่มีจุดคั่น) -> แยกเป็นก้อนเดี่ยว
         if u_len > max_chars:
             if current:
                 pieces.append(joiner.join(current))
@@ -101,8 +96,6 @@ def _pack_units(
                 overlap_units.insert(0, u)
                 acc += len(u)
 
-            # เช็คซ้ำ: overlap + unit ใหม่ยังเกิน max_chars อยู่ดีมั้ย
-            # ถ้าเกิน -> ทิ้ง overlap ทิ้งไปเลย เริ่มก้อนใหม่เปล่าๆ แทน
             if acc + u_len > max_chars:
                 current, current_len = [], 0
             else:
@@ -126,7 +119,8 @@ def _hard_split(text: str, max_chars: int, overlap_chars: int) -> list[str]:
 def recursive_split(
     text: str, max_chars: int = 500, overlap_chars: int = 75
 ) -> list[str]:
-    """ตัดข้อความยาวเป็นชิ้นขนาด ~max_chars ตัวอักษร ไล่ระดับความละเอียดจากหยาบไปละเอียด (ไม่เปลี่ยนจาก v2)"""
+    """ตัดข้อความ prose ยาวเป็นชิ้นขนาด ~max_chars ตัวอักษร (ใช้กับ prose เท่านั้น
+    สำหรับเนื้อหาที่อาจมีแถวตารางปนอยู่ ใช้ _split_preserving_rows แทน)"""
     sentences = _split_sentences(text)
     if not sentences:
         return []
@@ -151,18 +145,96 @@ def recursive_split(
     return final_pieces
 
 
+# ---------- ตัวตัดใหม่ (v4): เคารพขอบเขตแถวตาราง ห้ามผสมข้าม record ----------
+
+
+def _split_row_line(line: str, max_chars: int, overlap_chars: int) -> list[str]:
+    """
+    ตัดแถวตาราง 1 แถว (ที่ยาวเกิน max_chars เดี่ยวๆ อยู่แล้ว) โดยตัดตาม
+    ขอบเขต 'cell' (คั่นด้วย ROW_MARKER) เป็นหลัก ไม่ใช่โยนทั้งแถวเข้า
+    recursive_split ตรงๆ (ซึ่งไม่รู้จัก ROW_MARKER เลย เสี่ยงตัดคร่อม
+    กลาง cell/กลางคำได้ - เจอจริงจากการทดสอบ: "การโปรแกรมเชิงวัตถุ..."
+    โดนตัดกลางคำ "วัตถุ" แล้วท่อนที่เหลือไปติดกับรหัสวิชาถัดไปแทน)
+
+    วิธีทำ: แยกเป็น cell ก่อน (split ด้วย ROW_MARKER) แล้ว pack cell
+    เข้าด้วยกันแบบเดียวกับ _pack_units ปกติ (จะได้ไม่ตัดคร่อมกลาง cell)
+    ถ้า cell เดียวก็ยังยาวเกิน max_chars เอง (ชื่อวิชายาวมากจริงๆ)
+    ค่อย fallback ไป recursive_split เฉพาะ cell นั้น cell เดียว
+    (ยังไม่ปนกับ cell/วิชาอื่นอยู่ดี เพราะทำทีละ cell)
+    """
+    cells = [c.strip() for c in line.split(ROW_MARKER) if c.strip()]
+    if not cells:
+        return []
+
+    packed = _pack_units(cells, max_chars, overlap_chars, joiner=f" {ROW_MARKER} ")
+
+    final: list[str] = []
+    for piece in packed:
+        if len(piece) <= max_chars:
+            final.append(piece)
+        else:
+            final.extend(recursive_split(piece, max_chars, overlap_chars))
+    return final
+
+
+def _split_preserving_rows(text: str, max_chars: int, overlap_chars: int) -> list[str]:
+    """
+    เหมือน recursive_split แต่ 'ห้ามผสมหลายแถวตารางเข้าด้วยกันในก้อนเดียว'
+    เด็ดขาด ใช้แทน recursive_split ทุกจุดที่เนื้อหาอาจมีแถวตารางปนอยู่
+
+    กติกา:
+    1. บรรทัดที่มี ROW_MARKER (แถวตาราง) -> เป็น 1 unit เดี่ยวเสมอ
+    2. ถ้ามี prose ค้างอยู่ก่อนแถวตาราง (เช่น prefix บรรทัดแรก) และรวมกับ
+       แถวตารางนี้แล้วยังไม่เกิน max_chars -> ผนวกเข้าด้วยกัน (กันไม่ให้
+       prefix กลายเป็น chunk เดี่ยวๆ ที่ไม่มีเนื้อหาจริงอยู่ข้างใน)
+    3. บรรทัด prose ล้วนๆ (ไม่มีแถวตารางมาคั่น) -> ยัง pack รวมกันได้ตาม
+       recursive_split ปกติ ไม่กระทบพฤติกรรมเดิมสำหรับเอกสารที่เป็น
+       ข้อความบรรยายทั้งหมด
+    4. แถวตารางที่ยาวเกิน max_chars เดี่ยวๆ (นับแค่แถวนั้น ไม่รวมแถวอื่น)
+       -> fallback ไป recursive_split เฉพาะแถวนั้นแถวเดียว (ยังไม่ปนกับ
+       แถวอื่นอยู่ดี เพราะทำทีละแถว)
+    """
+    lines = text.split("\n")
+    units: list[str] = []
+    prose_buffer: list[str] = []
+
+    def flush_prose_buffer():
+        if not prose_buffer:
+            return
+        joined = "\n".join(prose_buffer)
+        units.extend(recursive_split(joined, max_chars, overlap_chars))
+        prose_buffer.clear()
+
+    for line in lines:
+        if ROW_MARKER in line:
+            if prose_buffer:
+                pending = "\n".join(prose_buffer)
+                combined = f"{pending}\n{line}"
+                if len(combined) <= max_chars:
+                    units.append(combined)
+                    prose_buffer.clear()
+                    continue
+                flush_prose_buffer()
+
+            if len(line) <= max_chars:
+                units.append(line)
+            else:
+                units.extend(_split_row_line(line, max_chars, overlap_chars))
+        else:
+            if line.strip():
+                prose_buffer.append(line)
+
+    flush_prose_buffer()
+    return units
+
+
 # ---------- ขั้นที่ 1: แบ่งตาม Heading Style จริงจาก Word เป็น "section" ดิบๆ ก่อน ----------
 
 
 def _split_into_sections(
     paragraphs: list[tuple[int | None, str]],
 ) -> list[tuple[tuple, str]]:
-    """
-    ไล่ทีละ (level, text) เจอ heading ระดับไหน ก็ปิด section เดิม เริ่ม section ใหม่
-    รีเซ็ตหัวข้อของทุกระดับที่ "ลึกกว่าหรือเท่ากับ" ระดับที่เพิ่งเจอ
-    (ย้ายมาจาก chunk_by_headings เดิมใน v2 เหมือนกันทุกอย่าง แค่แยกเป็นฟังก์ชันย่อย
-    เพื่อให้เอาไปต่อกับขั้น parent/child ได้)
-    """
+    """ไล่ทีละ (level, text) เจอ heading ระดับไหน ก็ปิด section เดิม เริ่ม section ใหม่"""
     current_path: dict[int, str] = {}
     current_body: list[str] = []
     sections: list[tuple[tuple, str]] = []
@@ -197,25 +269,26 @@ def chunk_by_headings_parent_child(
     paragraphs: list[tuple[int | None, str]],
     parent_max_chars: int = 1200,
     parent_overlap_chars: int = 100,
-    child_max_chars: int = 200,
+    child_max_chars: int = 400,
     child_overlap_chars: int = 30,
     header_prefix: str = "",
 ) -> tuple[list[ParentChunk], list[ChildChunk]]:
     """
-    paragraphs: list ของ (heading_level, text) จาก extraction.py เหมือนเดิมทุกประการ
+    paragraphs: list ของ (heading_level, text) จาก extraction.py
 
-    คืนค่าเป็น (parents, children) แยกกัน 2 list:
-    - parents: เก็บไว้ใน DB คอลัมน์ parent_text -> ให้ LLM อ่านตอนตอบคำถาม
-    - children: เอาไป embed เท่านั้น -> ใช้ค้นหา (vec_cosine_distance)
-      แต่ละ child มี .parent_index ชี้กลับไปหา parent ของตัวเองเสมอ
+    v4: เปลี่ยนจากเรียก recursive_split() ตรงๆ มาเรียก _split_preserving_rows()
+    แทนทั้ง 2 จุด (ตอนตัด parent ที่ section ยาวเกิน, ตอนตัด child ที่
+    parent ยาวเกิน) เพื่อไม่ให้แถวตารางถูกผสมข้าม record กัน
 
-    parent_max_chars ควรใหญ่พอสมควร (ค่าเริ่มต้น 1200) เพราะเป็นสิ่งที่ยัดใส่ prompt
-    ให้ LLM local (llama3.2 ผ่าน Ollama) อ่าน ต้องเผื่อ context window ไม่ให้ยาวเกิน
-    ไปคูณกับจำนวน k ที่ retrieve มาต่อครั้ง (k=3-5 chunks) แล้วบวก system prompt เอง
+    child_max_chars=400 (เดิม 200): ปรับจากข้อมูลจริง - เทอมที่มีวิชา
+    เยอะสุดในเอกสารแผนการเรียนยาวแค่ ~317 ตัวอักษร ตั้ง 400 ทำให้แต่ละ
+    เทอมกลายเป็น 1 child chunk เต็มๆ เสมอ (ไม่ตัดแยกเทอมเดียวเป็นหลาย
+    chunk อีก) ยังเล็กพอสำหรับ embedding ที่โฟกัส เพราะ _split_preserving_rows
+    ไม่ผสมหลายแถวเข้าด้วยกันอยู่ดีไม่ว่า max_chars จะตั้งเท่าไหร่
     """
     sections = _split_into_sections(paragraphs)
 
-    # ---- สร้าง Parent chunks: cap ขนาดด้วย recursive_split ถ้า section ยาวเกิน ----
+    # ---- สร้าง Parent chunks ----
     parents: list[ParentChunk] = []
     parent_idx = 0
 
@@ -234,7 +307,7 @@ def chunk_by_headings_parent_child(
             parent_idx += 1
         else:
             budget = max(parent_max_chars - len(prefix) - 1, 200)
-            sub_pieces = recursive_split(
+            sub_pieces = _split_preserving_rows(
                 body, max_chars=budget, overlap_chars=parent_overlap_chars
             )
             for piece in sub_pieces:
@@ -242,13 +315,11 @@ def chunk_by_headings_parent_child(
                 parents.append(ParentChunk(full_text, parent_idx, path))
                 parent_idx += 1
 
-    # ---- สร้าง Child chunks: ตัด parent แต่ละก้อนซ้ำให้เล็กลงอีกชั้น ----
+    # ---- สร้าง Child chunks ----
     children: list[ChildChunk] = []
     child_idx = 0
 
     for parent in parents:
-        # parent ก้อนเล็กพอแล้ว (สั้นกว่า child_max_chars อยู่แล้ว)
-        # -> ใช้ตัวเองเป็น child เลย ไม่ต้องเสียเวลาตัดซ้ำก้อนที่เล็กอยู่แล้ว
         if len(parent.text) <= child_max_chars:
             children.append(
                 ChildChunk(parent.text, child_idx, parent.parent_index, parent.path)
@@ -256,7 +327,7 @@ def chunk_by_headings_parent_child(
             child_idx += 1
             continue
 
-        sub_pieces = recursive_split(
+        sub_pieces = _split_preserving_rows(
             parent.text, max_chars=child_max_chars, overlap_chars=child_overlap_chars
         )
         for piece in sub_pieces:

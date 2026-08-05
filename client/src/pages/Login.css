@@ -1,10 +1,15 @@
 .login-page {
   min-height: 100vh;
-  min-height: 100dvh; /* fallback สำหรับมือถือที่ address bar ยุบ/ขยาย */
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f7f2e4;
+
+  background-image: url("../assets/BG.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center center;
+
   padding: 24px;
 }
 
