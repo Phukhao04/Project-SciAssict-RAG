@@ -1,27 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@600;700&display=swap');
+
 .admin-sidebar {
   width: 240px;
   background-color: #ffffff;
-  border-right: 1px solid #e6dab8;
+  border-right: 1px solid #E7E4D6;
   padding: 16px;
-  color: #6b5f4f;
+  color: #4b4a44;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.admin-sidebar-top {
+  overflow-y: auto;
+}
+
+.admin-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.admin-brand-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #FFD400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .admin-brand {
-  color: #2b2620;
-  font-size: 16px;
+  color: #181A2A;
+  font-family: 'Kanit', sans-serif;
+  font-size: 15px;
   font-weight: 600;
   margin: 0;
 }
 
 .admin-brand-sub {
-  color: #948a76;
-  font-size: 12px;
-  margin: 0 0 24px;
+  color: #8a8579;
+  font-size: 11px;
+  margin: 0;
 }
 
 .sidebar-group-label {
   font-size: 11px;
-  color: #948a76;
+  color: #a39d8c;
   letter-spacing: 0.5px;
   margin: 20px 0 8px 4px;
 }
@@ -40,47 +68,35 @@
   cursor: pointer;
   margin-bottom: 4px;
   text-decoration: none;
-  color: #6b5f4f;
+  color: #4b4a44;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .admin-menu-item:hover {
-  background-color: #f4ecd8;
+  background-color: #FFF6C9;
 }
 
 .admin-menu-item.active {
-  background-color: #f0e4c0;
-  color: #7a5c14;
+  background-color: #0B1150;
+  color: #FFD400;
+  font-weight: 600;
 }
 
-/* ทำให้ sidebar แบ่งครึ่งบน (เมนู) กับครึ่งล่าง (user+logout) แบบเดียวกับ Chat.css
-   ของเดิม .admin-sidebar เป็น block ธรรมดา เนื้อหาล้วนชิดบน ต้องเปลี่ยนเป็น flex column
-   แล้วดัน .admin-sidebar-user-wrap ไปอยู่ล่างสุดด้วย justify-content: space-between */
-.admin-sidebar {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.admin-sidebar-top {
-  overflow-y: auto;
-}
-
-/* ปุ่ม "กลับหน้าแชท" ให้ดูต่างจากเมนูปกตินิดหน่อย (สีอ่อนกว่า) เพราะเป็นทางออกจากโซน admin
-   ไม่ใช่หน้าในหมวดเดียวกัน ผู้ใช้ควรรู้สึกว่ามันคือ "ประตูออก" ไม่ใช่เมนูย่อย */
+/* ปุ่ม "กลับหน้าแชท" ให้ดูเป็นทางออกจากโซน admin ไม่ใช่เมนูย่อยธรรมดา */
 .admin-menu-item-back {
   color: #8a6d3f;
 }
 
 .admin-menu-item-back:hover {
-  background-color: #f4ecd8;
-  color: #6b5027;
+  background-color: #FFF6C9;
+  color: #7a6300;
 }
 
-/* ===== ส่วนล่าง: user + logout (พฤติกรรม/หน้าตาเดียวกับ Chat.css .sidebar-user-wrap) ===== */
+/* ===== ส่วนล่าง: user + logout ===== */
 
 .admin-sidebar-user-wrap {
   position: relative;
-  border-top: 1px solid #e6dab8;
+  border-top: 1px solid #E7E4D6;
   margin-top: 12px;
 }
 
@@ -94,15 +110,15 @@
 }
 
 .admin-sidebar-user:hover {
-  background-color: #f4ecd8;
+  background-color: #FFF6C9;
 }
 
 .admin-user-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: #c99a2e;
-  color: #2b2620;
+  background-color: #FFD400;
+  color: #0B1150;
   font-weight: 700;
   font-size: 13px;
   display: flex;
@@ -112,7 +128,7 @@
 }
 
 .admin-user-name {
-  color: #2b2620;
+  color: #181A2A;
   font-size: 13px;
   margin: 0;
 }
@@ -123,24 +139,27 @@
   left: 0;
   right: 0;
   background-color: #ffffff;
-  border: 1px solid #e6dab8;
+  border: 1px solid #E7E4D6;
   border-radius: 10px;
   margin-bottom: 6px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 20px rgba(11, 17, 80, 0.12);
 }
 
 .admin-user-menu-item {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   text-align: left;
   background: transparent;
   border: none;
-  color: #a13a2e;
+  color: #C0392B;
   font-size: 13px;
   padding: 12px 14px;
   cursor: pointer;
 }
 
 .admin-user-menu-item:hover {
-  background-color: #fbe9e7;
+  background-color: #fdf3f1;
 }
