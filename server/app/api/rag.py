@@ -19,7 +19,7 @@ from app.schemas.rag import (
     StatsResponse,
     QueryActivityItem,
 )
-from app.utils.extraction import UnsupportedFileTypeError, extract_text
+from app.utils.ingestion import UnsupportedFileTypeError
 from app.utils.ingestion import ingest_document
 from app.utils.llm import generate_answer
 from app.utils.retrieval import retrieve
@@ -48,12 +48,9 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     """
-    รับไฟล์ PDF/Word โดยตรง -> extract (ได้ list ของ (heading_level, text))
-    -> chunk_by_headings (v2: ใช้ Heading Style จริงจาก Word แทน regex เดา) -> embed -> insert
-
-    หมายเหตุ: extract_text() คืนค่าเป็น list[(heading_level, text)] เสมอ
-    ไฟล์ .docx จะมี heading_level จาก Heading Style ที่ผู้ใช้เลือกไว้ใน Word จริงๆ
-    ส่วนไฟล์ .pdf จะได้ heading_level=None ทุกบรรทัด (PDF ไม่มี style ให้อ่าน)
+    รับไฟล์ PDF/Word โดยตรง -> ส่ง bytes ดิบให้ ingest_document() จัดการ
+    extract + chunk เองทั้งหมดข้างใน (v3: ใช้ Docling สำหรับ .docx)
+    ไม่ต้องเรียก extract_text() แยกก่อนแล้ว
     """
     file_bytes = await file.read()
     size_mb = len(file_bytes) / (1024 * 1024)
@@ -62,31 +59,21 @@ async def upload_document(
             status_code=413, detail=f"ไฟล์ใหญ่เกิน {MAX_FILE_SIZE_MB}MB"
         )
 
-    try:
-        paragraphs = extract_text(file.filename, file_bytes)
-    except UnsupportedFileTypeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # เช็คว่ามีข้อความจริงอยู่บ้างไหม (กันไฟล์สแกน/รูปภาพที่ extract แล้วว่างเปล่า)
-    has_text = any(t.strip() for _, t in paragraphs)
-    if not has_text:
-        raise HTTPException(
-            status_code=400,
-            detail="ไม่พบข้อความในไฟล์ (อาจเป็นไฟล์สแกน/รูปภาพ ที่ต้องใช้ OCR)",
-        )
-
     document_type = file.filename.lower().rsplit(".", 1)[-1]
 
     try:
         result = ingest_document(
             db,
-            paragraphs=paragraphs,
+            filename=file.filename,
+            file_bytes=file_bytes,
             document_name=document_name,
             document_type=document_type,
             category_id=category_id,
             user_id=user_id,
             description=description,
         )
+    except UnsupportedFileTypeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         db.rollback()
         raise HTTPException(

@@ -11,6 +11,16 @@ import './Login.css'
 // role_id คงที่สำหรับ user ที่สมัครเอง
 const DEFAULT_ROLE_ID = 'R02'
 
+/* โลโก้อะตอมเดียวกับหน้าแชท/admin ให้ทั้งระบบดูเป็นชุดเดียวกัน */
+const AtomIcon = ({ size = 26 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="#0B1150" strokeWidth="1.6">
+    <ellipse cx="12" cy="12" rx="10" ry="4.2" />
+    <ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(60 12 12)" />
+    <ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(120 12 12)" />
+    <circle cx="12" cy="12" r="1.8" fill="#0B1150" stroke="none" />
+  </svg>
+)
+
 function Login() {
   const navigate = useNavigate()
   const { setUser } = useAuth()
@@ -69,7 +79,6 @@ function Login() {
 
       setUser(user)
 
-      // เช็คสิทธิ์
       if (user.role_id === 'R01') {
         navigate('/admin')
       } else {
@@ -163,7 +172,9 @@ function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
+        <div className="login-logo"><AtomIcon size={24} /></div>
         <h1 className="login-title">Sci Assistant</h1>
+        <p className="login-subtitle">คณะวิทยาศาสตร์ ม.อ. หาดใหญ่</p>
 
         <div className="login-tabs">
           <button
@@ -225,10 +236,7 @@ function Login() {
             </div>
 
             {errorMessage && (
-              <p
-                className="error-message"
-                style={{ color: 'red' }}
-              >
+              <p className="error-message">
                 {errorMessage}
               </p>
             )}
