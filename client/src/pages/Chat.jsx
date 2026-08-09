@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
 import './Chat.css'
+import logo from '../assets/logo.jpg'
 
 // const suggestionCards = [
 //   'อาจารย์ประจำหลักสูตร ICT มีใครบ้าง',
@@ -103,12 +104,13 @@ function Chat() {
   const avatarLetter = user?.username ? user.username[0].toUpperCase() : 'U'
   const isAdmin = user?.role_id === 'R01'
 
+  //logo
   return (
     <div className="chat-page">
       <aside className="chat-sidebar">
         <div className="sidebar-top">
           <div className="brand">
-            <span className="brand-logo">🤖</span>
+            <span className="brand-logo"> <img src={logo} alt="Sci Assistant" /> </span> 
             <div>
               <p className="brand-name">Sci Assistant</p>
               <p className="brand-sub">PSU · คณะวิทยาศาสตร์</p>
@@ -169,7 +171,7 @@ function Chat() {
 
         {!hasMessages ? (
           <div className="chat-welcome">
-            <div className="chat-logo">🤖</div>
+            <div className="chat-logo"> <img src={logo} alt="Sci Assistant" /> </div>
             <h2>สนทนาใหม่</h2>
             <p>ถามข้อมูลเกี่ยวกับคณะวิทยาศาสตร์ หลักสูตร หรืออาจารย์</p>
 
