@@ -6,6 +6,7 @@ import {
   Plus,
   Settings,
   LogOut,
+  User,          // <-- เพิ่ม
   Send,
   FlaskConical,
   Dna,
@@ -143,7 +144,10 @@ function Chat() {
         <div className="rail-avatar-wrap">
           {userMenuOpen && (
             <div className="rail-user-menu">
-              <p className="rail-user-menu-name">{user?.username || 'ผู้ใช้งาน'}</p>
+              <div className="rail-user-menu-name">{user?.username}</div>
+              <button className="rail-user-menu-item rail-user-menu-item-profile" onClick={() => navigate('/profile')}>
+                <User size={14} /> แก้ไขข้อมูลส่วนตัว
+              </button>
               <button className="rail-user-menu-item" onClick={handleLogout}>
                 <LogOut size={14} /> ออกจากระบบ
               </button>

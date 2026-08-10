@@ -414,6 +414,21 @@
   transition: transform 0.1s ease, opacity 0.15s ease;
   flex-shrink: 0;
 }
+/* ปุ่ม "แก้ไขข้อมูลส่วนตัว" ใช้สีปกติ ต่างจาก .user-menu-item ที่เป็นสีแดงสำหรับ logout เท่านั้น */
+.user-menu-item-profile {
+  color: #2b2620 !important;
+}
+.rail-user-menu-item:hover { background: #fbedeb; }
+
+/* ปุ่ม "แก้ไขข้อมูลส่วนตัว" ใช้โทนน้ำเงิน PSU แทนสีแดง (สีแดงเก็บไว้ให้ logout อย่างเดียว) */
+.rail-user-menu-item-profile {
+  color: var(--navy);
+}
+
+.rail-user-menu-item-profile:hover {
+  background: var(--yellow-soft);
+}
+
 
 .send-btn:hover:not(:disabled) { transform: scale(1.06); }
 
