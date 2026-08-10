@@ -1,30 +1,3 @@
-"""
-Header-based Parent-Child Chunking
-====================================
-v4: แก้ปัญหา "แถวตารางถูกผสมปนกันข้ามรายวิชา" ที่เจอจริงจากการทดสอบ
-(308-232 ไปโดนดึงไปติดกับชื่อวิชาของ 308-331 เพราะทั้งคู่ถูก pack รวม
-ก้อนเดียวกันตามจำนวนตัวอักษร โดยไม่สนว่าเป็นคนละ record/รายวิชากัน)
-
-ต้นตอ: recursive_split() (ผ่าน _pack_units) ตัด/รวม "หน่วยข้อความ"
-(ประโยค) เข้าด้วยกันตามจำนวนตัวอักษรล้วนๆ ไม่รู้จัก concept ของ "แถว
-ตาราง 1 แถว = 1 record ที่ห้ามผสมกับ record อื่น" เลย เพราะเดิมออกแบบ
-มาสำหรับ prose (ที่การ pack ประโยคติดกันเป็นเรื่องดี ให้บริบทมากขึ้น)
-ไม่ได้ออกแบบมาสำหรับข้อมูลตาราง (ที่การ pack ข้าม record เป็นเรื่องเสีย)
-
-ทางแก้ (v4): เพิ่ม _split_preserving_rows() เป็นตัวเลือกใหม่ที่ใช้แทน
-recursive_split() เฉพาะตอนตัด parent และตัด child เท่านั้น (2 จุดที่
-เดิมเรียก recursive_split ตรงๆ) กติกา:
-    - บรรทัดที่มาจากแถวตาราง (ตรวจด้วย ROW_MARKER) -> เป็น 1 unit เดี่ยว
-      เสมอ ห้ามถูกดึงไปรวมกับแถวตารางอื่น
-    - บรรทัด prose ธรรมดา -> ยัง pack รวมกันได้ตามปกติ (ไม่กระทบ
-      พฤติกรรมเดิมสำหรับเอกสารที่เป็นข้อความบรรยาย)
-ไม่ต้องมี DB table ใหม่ ไม่ต้อง retrieval path ใหม่ - ยังใช้
-ParentChunk/ChildChunk เดิมทั้งหมด แค่เปลี่ยนวิธี "ตัด" เท่านั้น
-
-อ้างอิง: Anthropic - "Contextual Retrieval", Small-to-Big Retrieval
-https://www.anthropic.com/engineering/contextual-retrieval
-"""
-
 import re
 from dataclasses import dataclass
 
@@ -119,8 +92,6 @@ def _hard_split(text: str, max_chars: int, overlap_chars: int) -> list[str]:
 def recursive_split(
     text: str, max_chars: int = 500, overlap_chars: int = 75
 ) -> list[str]:
-    """ตัดข้อความ prose ยาวเป็นชิ้นขนาด ~max_chars ตัวอักษร (ใช้กับ prose เท่านั้น
-    สำหรับเนื้อหาที่อาจมีแถวตารางปนอยู่ ใช้ _split_preserving_rows แทน)"""
     sentences = _split_sentences(text)
     if not sentences:
         return []
@@ -149,19 +120,6 @@ def recursive_split(
 
 
 def _split_row_line(line: str, max_chars: int, overlap_chars: int) -> list[str]:
-    """
-    ตัดแถวตาราง 1 แถว (ที่ยาวเกิน max_chars เดี่ยวๆ อยู่แล้ว) โดยตัดตาม
-    ขอบเขต 'cell' (คั่นด้วย ROW_MARKER) เป็นหลัก ไม่ใช่โยนทั้งแถวเข้า
-    recursive_split ตรงๆ (ซึ่งไม่รู้จัก ROW_MARKER เลย เสี่ยงตัดคร่อม
-    กลาง cell/กลางคำได้ - เจอจริงจากการทดสอบ: "การโปรแกรมเชิงวัตถุ..."
-    โดนตัดกลางคำ "วัตถุ" แล้วท่อนที่เหลือไปติดกับรหัสวิชาถัดไปแทน)
-
-    วิธีทำ: แยกเป็น cell ก่อน (split ด้วย ROW_MARKER) แล้ว pack cell
-    เข้าด้วยกันแบบเดียวกับ _pack_units ปกติ (จะได้ไม่ตัดคร่อมกลาง cell)
-    ถ้า cell เดียวก็ยังยาวเกิน max_chars เอง (ชื่อวิชายาวมากจริงๆ)
-    ค่อย fallback ไป recursive_split เฉพาะ cell นั้น cell เดียว
-    (ยังไม่ปนกับ cell/วิชาอื่นอยู่ดี เพราะทำทีละ cell)
-    """
     cells = [c.strip() for c in line.split(ROW_MARKER) if c.strip()]
     if not cells:
         return []
@@ -178,22 +136,6 @@ def _split_row_line(line: str, max_chars: int, overlap_chars: int) -> list[str]:
 
 
 def _split_preserving_rows(text: str, max_chars: int, overlap_chars: int) -> list[str]:
-    """
-    เหมือน recursive_split แต่ 'ห้ามผสมหลายแถวตารางเข้าด้วยกันในก้อนเดียว'
-    เด็ดขาด ใช้แทน recursive_split ทุกจุดที่เนื้อหาอาจมีแถวตารางปนอยู่
-
-    กติกา:
-    1. บรรทัดที่มี ROW_MARKER (แถวตาราง) -> เป็น 1 unit เดี่ยวเสมอ
-    2. ถ้ามี prose ค้างอยู่ก่อนแถวตาราง (เช่น prefix บรรทัดแรก) และรวมกับ
-       แถวตารางนี้แล้วยังไม่เกิน max_chars -> ผนวกเข้าด้วยกัน (กันไม่ให้
-       prefix กลายเป็น chunk เดี่ยวๆ ที่ไม่มีเนื้อหาจริงอยู่ข้างใน)
-    3. บรรทัด prose ล้วนๆ (ไม่มีแถวตารางมาคั่น) -> ยัง pack รวมกันได้ตาม
-       recursive_split ปกติ ไม่กระทบพฤติกรรมเดิมสำหรับเอกสารที่เป็น
-       ข้อความบรรยายทั้งหมด
-    4. แถวตารางที่ยาวเกิน max_chars เดี่ยวๆ (นับแค่แถวนั้น ไม่รวมแถวอื่น)
-       -> fallback ไป recursive_split เฉพาะแถวนั้นแถวเดียว (ยังไม่ปนกับ
-       แถวอื่นอยู่ดี เพราะทำทีละแถว)
-    """
     lines = text.split("\n")
     units: list[str] = []
     prose_buffer: list[str] = []
@@ -273,20 +215,6 @@ def chunk_by_headings_parent_child(
     child_overlap_chars: int = 30,
     header_prefix: str = "",
 ) -> tuple[list[ParentChunk], list[ChildChunk]]:
-    """
-    paragraphs: list ของ (heading_level, text) จาก extraction.py
-
-    v4: เปลี่ยนจากเรียก recursive_split() ตรงๆ มาเรียก _split_preserving_rows()
-    แทนทั้ง 2 จุด (ตอนตัด parent ที่ section ยาวเกิน, ตอนตัด child ที่
-    parent ยาวเกิน) เพื่อไม่ให้แถวตารางถูกผสมข้าม record กัน
-
-    child_max_chars=400 (เดิม 200): ปรับจากข้อมูลจริง - เทอมที่มีวิชา
-    เยอะสุดในเอกสารแผนการเรียนยาวแค่ ~317 ตัวอักษร ตั้ง 400 ทำให้แต่ละ
-    เทอมกลายเป็น 1 child chunk เต็มๆ เสมอ (ไม่ตัดแยกเทอมเดียวเป็นหลาย
-    chunk อีก) ยังเล็กพอสำหรับ embedding ที่โฟกัส เพราะ _split_preserving_rows
-    ไม่ผสมหลายแถวเข้าด้วยกันอยู่ดีไม่ว่า max_chars จะตั้งเท่าไหร่
-    """
-    sections = _split_into_sections(paragraphs)
 
     # ---- สร้าง Parent chunks ----
     parents: list[ParentChunk] = []

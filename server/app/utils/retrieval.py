@@ -113,7 +113,6 @@ def _try_heading_match(db: Session, question: str) -> list[RetrievedChunk]:
 
 
 def _retrieve_by_vector(db: Session, query_text_str: str, k: int) -> list[RetrievedChunk]:
-    """vector search แบบเดิม (ไม่เปลี่ยนอะไรจากของเดิม)"""
     query_embedding = embed_query(query_text_str)
 
     sql = text("""

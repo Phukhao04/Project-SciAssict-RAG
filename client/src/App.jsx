@@ -8,6 +8,7 @@ import DocumentChunks from './pages/admin/DocumentChunks'
 import UserManagement from './pages/admin/UserManagement'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import RootRedirect from './pages/RootRedirect'
+import Profile from './pages/Profile'
 import './App.css'
 
 function App() {
@@ -18,53 +19,40 @@ function App() {
 
       <Route
         path="/chat"
-        element={
-          <ProtectedRoute>
-            <Chat />
-          </ProtectedRoute>
-        }
-      />
+        element={<ProtectedRoute>
+          <Chat />
+        </ProtectedRoute>} />
 
       <Route
         path="/admin"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
+        element={<ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>} />
       <Route
         path="/admin/upload"
-        element={
-          <ProtectedRoute>
-            <UploadDocument />
-          </ProtectedRoute>
-        }
-      />
+        element={<ProtectedRoute>
+          <UploadDocument />
+        </ProtectedRoute>} />
       <Route
         path="/admin/documents"
-        element={
-          <ProtectedRoute>
-            <DocumentManagement />
-          </ProtectedRoute>
-        }
-      />
+        element={<ProtectedRoute>
+          <DocumentManagement />
+        </ProtectedRoute>} />
       <Route
         path="/admin/documents/:id"
-        element={
-          <ProtectedRoute>
-            <DocumentChunks />
-          </ProtectedRoute>
-        }
-      />
+        element={<ProtectedRoute>
+          <DocumentChunks />
+        </ProtectedRoute>} />
       <Route
         path="/admin/users"
-        element={
-          <ProtectedRoute>
-            <UserManagement />
-          </ProtectedRoute>
-        }
-      />
+        element={<ProtectedRoute>
+          <UserManagement />
+        </ProtectedRoute>} />
+      <Route
+        path="/profile"
+        element={<ProtectedRoute>
+          <Profile />
+        </ProtectedRoute>} />
     </Routes>
   )
 }

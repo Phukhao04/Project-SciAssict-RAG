@@ -6,10 +6,8 @@ import {
   Plus,
   Settings,
   LogOut,
+  User,          // <-- เพิ่ม
   Send,
-  ChevronUp,
-  ChevronDown,
-  FileText,
   FlaskConical,
   Dna,
   Cpu,
@@ -25,47 +23,6 @@ const BRANCH_ICONS = [
   { title: 'วิทยาศาสตร์การคำนวณ', Icon: Cpu },
   { title: 'วิทยาศาสตร์สุขภาพและประยุกต์', Icon: HeartPulse },
 ]
-
-/* --------------------------------------------------------------
-   แถบแหล่งอ้างอิง — ผูกกับแก่นของ RAG โดยตรง ทุกคำตอบ bot ต้องโชว์
-   ได้ว่ามาจากเอกสาร/chunk ไหน ปรับ field name ใน normalizeSource()
-   ถ้ารูปแบบจริงจาก ragService ไม่ตรงกับที่เดาไว้
-   -------------------------------------------------------------- */
-function normalizeSource(s, i) {
-  return {
-    id: s.chunk_id || s.id || `source_${i}`,
-    doc: s.doc_name || s.document_name || s.filename || s.title || 'เอกสารอ้างอิง',
-    snippet: s.snippet || s.content || s.text || s.chunk_text || '',
-  }
-}
-
-function CitationRow({ sources }) {
-  const [openId, setOpenId] = useState(null)
-  if (!sources?.length) return null
-  const items = sources.map(normalizeSource)
-
-  return (
-    <div className="citations">
-      <p className="citations-label">แหล่งอ้างอิง</p>
-      <div className="citation-list">
-        {items.map((c) => {
-          const open = openId === c.id
-          return (
-            <div key={c.id} className="citation-wrap">
-              <button type="button" className="citation-chip" onClick={() => setOpenId(open ? null : c.id)}>
-                <FileText size={13} />
-                <span className="citation-doc">{c.doc}</span>
-                <span className="citation-id">{c.id}</span>
-                {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              </button>
-              {open && c.snippet && <p className="citation-snippet">{c.snippet}</p>}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 function Chat() {
   const { user, setUser } = useAuth()
@@ -185,7 +142,10 @@ function Chat() {
         <div className="rail-avatar-wrap">
           {userMenuOpen && (
             <div className="rail-user-menu">
-              <p className="rail-user-menu-name">{user?.username || 'ผู้ใช้งาน'}</p>
+              <div className="rail-user-menu-name">{user?.username}</div>
+              <button className="rail-user-menu-item rail-user-menu-item-profile" onClick={() => navigate('/profile')}>
+                <User size={14} /> แก้ไขข้อมูลส่วนตัว
+              </button>
               <button className="rail-user-menu-item" onClick={handleLogout}>
                 <LogOut size={14} /> ออกจากระบบ
               </button>
@@ -249,7 +209,6 @@ function Chat() {
                 )}
                 <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
                   {msg.text}
-                  {msg.role !== 'user' && !msg.isError && <CitationRow sources={msg.sources} />}
                 </div>
                 {msg.role === 'user' && <div className="avatar user">{avatarLetter}</div>}
               </div>
