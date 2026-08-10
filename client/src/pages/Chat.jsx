@@ -7,9 +7,6 @@ import {
   Settings,
   LogOut,
   Send,
-  ChevronUp,
-  ChevronDown,
-  FileText,
   FlaskConical,
   Dna,
   Cpu,
@@ -18,55 +15,15 @@ import {
 import { useAuth } from '../hooks/useAuth'
 import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
 import './Chat.css'
-import logo from '../assets/logo.jpg'
 
+/* badge 4 สาขาจริงของคณะ: กายภาพ / ชีวภาพ / คำนวณ / สุขภาพและประยุกต์
+   ใช้ไอคอนจาก lucide-react แทน SVG มือเขียน */
 const BRANCH_ICONS = [
   { title: 'วิทยาศาสตร์กายภาพ', Icon: FlaskConical },
   { title: 'วิทยาศาสตร์ชีวภาพ', Icon: Dna },
   { title: 'วิทยาศาสตร์การคำนวณ', Icon: Cpu },
   { title: 'วิทยาศาสตร์สุขภาพและประยุกต์', Icon: HeartPulse },
 ]
-
-/* --------------------------------------------------------------
-   แถบแหล่งอ้างอิง — ผูกกับแก่นของ RAG โดยตรง ทุกคำตอบ bot ต้องโชว์
-   ได้ว่ามาจากเอกสาร/chunk ไหน ปรับ field name ใน normalizeSource()
-   ถ้ารูปแบบจริงจาก ragService ไม่ตรงกับที่เดาไว้
-   -------------------------------------------------------------- */
-function normalizeSource(s, i) {
-  return {
-    id: s.chunk_id || s.id || `source_${i}`,
-    doc: s.doc_name || s.document_name || s.filename || s.title || 'เอกสารอ้างอิง',
-    snippet: s.snippet || s.content || s.text || s.chunk_text || '',
-  }
-}
-
-function CitationRow({ sources }) {
-  const [openId, setOpenId] = useState(null)
-  if (!sources?.length) return null
-  const items = sources.map(normalizeSource)
-
-  return (
-    <div className="citations">
-      <p className="citations-label">แหล่งอ้างอิง</p>
-      <div className="citation-list">
-        {items.map((c) => {
-          const open = openId === c.id
-          return (
-            <div key={c.id} className="citation-wrap">
-              <button type="button" className="citation-chip" onClick={() => setOpenId(open ? null : c.id)}>
-                <FileText size={13} />
-                <span className="citation-doc">{c.doc}</span>
-                <span className="citation-id">{c.id}</span>
-                {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              </button>
-              {open && c.snippet && <p className="citation-snippet">{c.snippet}</p>}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 function Chat() {
   const { user, setUser } = useAuth()
@@ -157,17 +114,27 @@ function Chat() {
   const avatarLetter = user?.username ? user.username[0].toUpperCase() : 'U'
   const isAdmin = user?.role_id === 'R01'
 
-  //logo
   return (
     <div className="chat-page">
-      <aside className="chat-sidebar">
-        <div className="sidebar-top">
-          <div className="brand">
-            <span className="brand-logo">🤖</span>
-            <div>
-              <p className="brand-name">Sci Assistant</p>
-              <p className="brand-sub">PSU · คณะวิทยาศาสตร์</p>
-            </div>
+      {/* ===== แถบไอคอนลอย ===== */}
+      <div className="rail">
+        <div className="rail-logo"><Atom size={20} color="#0B1150" /></div>
+
+        <div
+          className={`rail-btn${historyOpen ? ' active' : ''}`}
+          onClick={() => setHistoryOpen((v) => !v)}
+          title="ประวัติการสนทนา"
+        >
+          <History size={19} />
+        </div>
+
+        <div className="rail-btn" onClick={handleNewChat} title="สนทนาใหม่">
+          <Plus size={19} />
+        </div>
+
+        {isAdmin && (
+          <div className="rail-btn" onClick={() => navigate('/admin')} title="ไปหน้า Admin">
+            <Settings size={18} />
           </div>
         )}
 
@@ -220,18 +187,16 @@ function Chat() {
         </div>
 
         {!hasMessages ? (
-          <div className="chat-welcome">
-            <div className="chat-logo">🤖</div>
-            <h2>สนทนาใหม่</h2>
-            <p>ถามข้อมูลเกี่ยวกับคณะวิทยาศาสตร์ หลักสูตร หรืออาจารย์</p>
-
-            {/* <div className="suggestion-grid">
-              {suggestionCards.map((text, i) => (
-                <button key={i} className="suggestion-card" onClick={() => handleSuggestionClick(text)}>
-                  {text}
-                </button>
+          <div className="welcome">
+            <div className="welcome-badges">
+              {BRANCH_ICONS.map(({ title, Icon }) => (
+                <div className="badge" key={title} title={title}>
+                  <Icon size={24} color="#0B1150" strokeWidth={1.7} />
+                </div>
               ))}
-            </div> */}
+            </div>
+            <h1>สวัสดี พร้อมตอบทุกคำถามคณะวิทย์</h1>
+            <p>ถามเรื่องหลักสูตร อาจารย์ รายวิชา หรือขั้นตอนต่างๆ ได้เลย คำตอบทุกอันอ้างอิงจากเอกสารจริงของคณะ</p>
           </div>
         ) : (
           <div className="messages">
@@ -242,7 +207,6 @@ function Chat() {
                 )}
                 <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
                   {msg.text}
-                  {msg.role !== 'user' && !msg.isError && <CitationRow sources={msg.sources} />}
                 </div>
                 {msg.role === 'user' && <div className="avatar user">{avatarLetter}</div>}
               </div>
