@@ -1,6 +1,8 @@
 from fastapi import Depends, HTTPException, Header
 from app.utils.security import verify_token
 
+ADMIN_ROLE_ID = "R01"
+
 
 def get_current_user(authorization: str = Header(default="")):
     """
@@ -20,6 +22,6 @@ def get_current_user(authorization: str = Header(default="")):
 
 def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
     """ใช้เป็น Depends() ใน endpoint ที่ต้องจำกัดเฉพาะ role admin เท่านั้น"""
-    if current_user.get("role_id") != "admin":
+    if current_user.get("role_id") != ADMIN_ROLE_ID:
         raise HTTPException(status_code=403, detail="ต้องมีสิทธิ์ผู้ดูแลระบบเท่านั้น")
     return current_user

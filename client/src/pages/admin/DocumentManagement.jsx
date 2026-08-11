@@ -1,9 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminSidebar from "../../components/admin/AdminSidebar";
+import AppConfig from "../../config/appConfig";
 import "./Admin.css";
 
-const API_BASE_URL = "http://127.0.0.1:8000"; // TODO: ย้ายไป constant กลางถ้ามีใน authService.js
+const API_BASE_URL = AppConfig.apiBase;
+
+function authHeaders() {
+  const token = localStorage.getItem("access_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 function formatThaiDate(isoString) {
   const d = new Date(isoString);
@@ -17,21 +23,25 @@ function DocumentManagement() {
   const [search, setSearch] = useState("");
 
   const [documents, setDocuments] = useState([]);
-  const [isLoading, setIsLoading] = useState(true); // true ตั้งแต่แรกอยู่แล้ว ไม่ต้อง set ซ้ำตอน mount
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   const [deletingId, setDeletingId] = useState(null);
 
   const loadDocuments = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/rag/documents`);
+      const res = await fetch(`${API_BASE_URL}/api/rag/documents`, {
+        headers: { ...authHeaders() },
+      });
+      if (res.status === 401) throw new Error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
+      if (res.status === 403) throw new Error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
       if (!res.ok) throw new Error("โหลดรายการเอกสารไม่สำเร็จ");
       const data = await res.json();
       setDocuments(data);
       setLoadError("");
     } catch (err) {
       console.error(err);
-      setLoadError("ไม่สามารถโหลดรายการเอกสารได้ กรุณาลองใหม่");
+      setLoadError(err.message || "ไม่สามารถโหลดรายการเอกสารได้ กรุณาลองใหม่");
     } finally {
       setIsLoading(false);
     }
@@ -55,13 +65,16 @@ function DocumentManagement() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/rag/documents/${docId}`, {
         method: "DELETE",
+        headers: { ...authHeaders() },
       });
+      if (res.status === 401) throw new Error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
+      if (res.status === 403) throw new Error("คุณไม่มีสิทธิ์ลบเอกสาร");
       if (!res.ok) throw new Error("ลบเอกสารไม่สำเร็จ");
 
       setDocuments((prev) => prev.filter((d) => d.document_id !== docId));
     } catch (err) {
       console.error(err);
-      alert("ลบเอกสารไม่สำเร็จ กรุณาลองใหม่");
+      alert(err.message || "ลบเอกสารไม่สำเร็จ กรุณาลองใหม่");
     } finally {
       setDeletingId(null);
     }
