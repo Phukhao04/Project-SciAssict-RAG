@@ -1,12 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import "./UserManagement.css";
 import AdminSidebar from '../../components/admin/AdminSidebar'
+import AppConfig from "../../config/appConfig";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE = AppConfig.apiBase;
 
-// แก้จากเดิมที่อ่าน key "user_id" ตรงๆ (ไม่เคยมีการ set key นี้จริง)
-// AuthContext.jsx เก็บ user ทั้งก้อนเป็น JSON ไว้ที่ key "user" เท่านั้น
-// ของเดิมจะได้ null เสมอ ทำให้ isSelf เป็น false ตลอด (admin ลบ/เปลี่ยน role ตัวเองได้โดยไม่ถูกกัน)
 function getCurrentUserId() {
   const raw = localStorage.getItem("user");
   if (!raw) return null;
@@ -23,15 +21,10 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-// map role_id จริง (R01, R02, ...) ไปเป็น class สี badge
-// แยกออกมาจาก role_id ตรงๆ เพราะ role_id ในอนาคตอาจเพิ่ม R03, R04
-// โดยไม่ต้องมาคอยเดา CSS class ชื่อใหม่ทุกครั้ง ถ้า role ไหนไม่รู้จัก fallback เป็นสีเทากลาง
 const ROLE_BADGE_CLASS = {
   R01: "um-role-admin",
   R02: "um-role-student",
 };
-
-// ดึง current user จาก token/localStorage ที่เก็บไว้ตอน login (authService.js เดิม)
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);

@@ -1,15 +1,28 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  Atom,
+  History,
+  Plus,
+  Settings,
+  LogOut,
+  User,          // <-- เพิ่ม
+  Send,
+  FlaskConical,
+  Dna,
+  Cpu,
+  HeartPulse,
+} from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
 import './Chat.css'
 
-// const suggestionCards = [
-//   'อาจารย์ประจำหลักสูตร ICT มีใครบ้าง',
-//   'วิชาเลือกเสรีที่เปิดรับในเทอม 2 ปี 2569 มีอะไรบ้าง',
-//   'หลักสูตร ICT มีหน่วยกิตรวมเท่าไหร่',
-//   'วิชาที่เปิดสอนในหลักสูตร ICT มีอะไรบ้าง',
-// ]
+const BRANCH_ICONS = [
+  { title: 'วิทยาศาสตร์กายภาพ', Icon: FlaskConical },
+  { title: 'วิทยาศาสตร์ชีวภาพ', Icon: Dna },
+  { title: 'วิทยาศาสตร์การคำนวณ', Icon: Cpu },
+  { title: 'วิทยาศาสตร์สุขภาพและประยุกต์', Icon: HeartPulse },
+]
 
 function Chat() {
   const { user, setUser } = useAuth()
@@ -19,39 +32,36 @@ function Chat() {
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [message, setMessage] = useState('')
   const [chatHistory, setChatHistory] = useState([])
-  const [showUserMenu, setShowUserMenu] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
 
-  // โหลด session list ตอนเปิดหน้าครั้งแรก
   useEffect(() => {
     if (!user?.user_id) return
     getSessions(user.user_id).then(setSessions)
   }, [user?.user_id])
 
-  // เลื่อนไปล่างสุดอัตโนมัติทุกครั้งที่มีข้อความใหม่ (ทั้งของ user และ bot)
-  // รวมถึงตอน isSending เปลี่ยน (โชว์ bubble "กำลังค้นหาคำตอบ...")
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory, isSending])
 
   const handleSessionClick = async (sessionId) => {
     setActiveSessionId(sessionId)
+    setHistoryOpen(false)
     const messages = await getSessionMessages(sessionId)
-    // แปลง sender_role ('user'/'bot') จาก backend ให้ตรงกับ role ที่ UI ใช้อยู่แล้ว
     setChatHistory(
-      messages.map((m) => ({ role: m.sender_role, text: m.message_text }))
+      messages.map((m) => ({ role: m.sender_role, text: m.message_text, sources: m.sources }))
     )
   }
 
-  const handleSend = async (e) => {
-    e.preventDefault()
-    const trimmed = message.trim()
+  const sendMessage = async (text) => {
+    const trimmed = text.trim()
     if (!trimmed || isSending || !user?.user_id) return
 
-    const userMessage = { role: 'user', text: trimmed }
-    setChatHistory((prev) => [...prev, userMessage])
+    setChatHistory((prev) => [...prev, { role: 'user', text: trimmed }])
     setMessage('')
     setIsSending(true)
 
@@ -65,8 +75,6 @@ function Chat() {
 
       setChatHistory((prev) => [...prev, { role: 'bot', text: result.answer, sources: result.sources }])
 
-      // ถ้าเป็นข้อความแรก (ไม่เคยมี activeSessionId มาก่อน) -> เพิ่งสร้าง session ใหม่จาก backend
-      // ต้องอัปเดต state + โหลด session list ใหม่ ให้โผล่ในแถบซ้ายทันที
       if (!activeSessionId) {
         setActiveSessionId(result.sessionId)
         const updatedSessions = await getSessions(user.user_id)
@@ -83,15 +91,17 @@ function Chat() {
     }
   }
 
-  // const handleSuggestionClick = (text) => {
-  //   setMessage(text)
-  // }
+  const handleSend = (e) => {
+    e.preventDefault()
+    sendMessage(message)
+  }
 
   const handleNewChat = () => {
-    // ไม่ยิง API ตรงนี้ -- รอจนกว่าจะพิมพ์คำถามแรกจริง backend ถึงจะสร้าง session ให้เอง
     setChatHistory([])
     setMessage('')
     setActiveSessionId(null)
+    setHistoryOpen(false)
+    inputRef.current?.focus()
   }
 
   const handleLogout = () => {
@@ -105,107 +115,135 @@ function Chat() {
 
   return (
     <div className="chat-page">
-      <aside className="chat-sidebar">
-        <div className="sidebar-top">
-          <div className="brand">
-            <span className="brand-logo">🤖</span>
-            <div>
-              <p className="brand-name">Sci Assistant</p>
-              <p className="brand-sub">PSU · คณะวิทยาศาสตร์</p>
-            </div>
-          </div>
+      {/* ===== แถบไอคอนลอย ===== */}
+      <div className="rail">
+        <div className="rail-logo"><Atom size={20} color="#0B1150" /></div>
 
-          <button className="new-chat-btn" onClick={handleNewChat}>
-            + สนทนาใหม่
-          </button>
-
-          {/* ย้ายปุ่มสลับไปหน้า Admin มาไว้ที่นี่ (เดิมอยู่ใน chat-header ขวาบน)
-              เพื่อให้ตำแหน่ง "สลับหน้า" อยู่โซน navigation ของ sidebar เหมือนกับ
-              ปุ่ม "กลับหน้าแชท" ที่ฝั่ง AdminSidebar ผู้ใช้จะเจอปุ่มสลับหน้าที่ตำแหน่ง
-              เดียวกันเสมอไม่ว่าจะอยู่หน้าไหน (positional consistency) */}
-          {isAdmin && (
-            <button className="admin-link-btn" onClick={() => navigate('/admin')}>
-              ⚙ ไปหน้า Admin
-            </button>
-          )}
-
-          <p className="sidebar-label">ล่าสุด</p>
-
-          <ul className="session-list">
-            {sessions.map((session) => (
-              <li
-                key={session.session_id}
-                className={session.session_id === activeSessionId ? 'session active' : 'session'}
-                onClick={() => handleSessionClick(session.session_id)}
-              >
-                {session.session_title || 'สนทนาไม่มีชื่อ'}
-              </li>
-            ))}
-          </ul>
+        <div
+          className={`rail-btn${historyOpen ? ' active' : ''}`}
+          onClick={() => setHistoryOpen((v) => !v)}
+          title="ประวัติการสนทนา"
+        >
+          <History size={19} />
         </div>
 
-        <div className="sidebar-user-wrap">
-          {showUserMenu && (
-            <div className="user-menu">
-              <button className="user-menu-item" onClick={handleLogout}>
-                🚪 ออกจากระบบ
+        <div className="rail-btn" onClick={handleNewChat} title="สนทนาใหม่">
+          <Plus size={19} />
+        </div>
+
+        {isAdmin && (
+          <div className="rail-btn" onClick={() => navigate('/admin')} title="ไปหน้า Admin">
+            <Settings size={18} />
+          </div>
+        )}
+
+        <div className="rail-spacer" />
+
+        <div className="rail-avatar-wrap">
+          {userMenuOpen && (
+            <div className="rail-user-menu">
+              <div className="rail-user-menu-name">{user?.username}</div>
+              <button className="rail-user-menu-item rail-user-menu-item-profile" onClick={() => navigate('/profile')}>
+                <User size={14} /> แก้ไขข้อมูลส่วนตัว
+              </button>
+              <button className="rail-user-menu-item" onClick={handleLogout}>
+                <LogOut size={14} /> ออกจากระบบ
               </button>
             </div>
           )}
-
-          <div className="sidebar-user" onClick={() => setShowUserMenu((v) => !v)}>
-            <div className="user-avatar">{avatarLetter}</div>
-            <div>
-              <p className="user-name">{user?.username || 'ผู้ใช้งาน'}</p>
-            </div>
+          <div className="rail-avatar" onClick={() => setUserMenuOpen((v) => !v)} title={user?.username}>
+            {avatarLetter}
           </div>
         </div>
-      </aside>
+      </div>
 
-      <main className="chat-main">
-        <div className="chat-header">
-          <span className="version-tag">RAG v1.0</span>
+      {/* ===== ประวัติแบบเลื่อนทับ ===== */}
+      <div className={`history-drawer${historyOpen ? ' open' : ''}`}>
+        <h3>ประวัติการสนทนา</h3>
+        {sessions.length === 0 ? (
+          <p className="history-empty">ยังไม่มีประวัติการสนทนา</p>
+        ) : (
+          sessions.map((session) => (
+            <div
+              key={session.session_id}
+              className={session.session_id === activeSessionId ? 'history-item active' : 'history-item'}
+              onClick={() => handleSessionClick(session.session_id)}
+            >
+              {session.session_title || 'สนทนาไม่มีชื่อ'}
+            </div>
+          ))
+        )}
+      </div>
+      {historyOpen && <div className="drawer-backdrop" onClick={() => setHistoryOpen(false)} />}
+
+      {/* ===== พื้นที่หลัก ===== */}
+      <div className="main">
+        <div className="wave-header">
+          <div className="wave-top">
+            <div>
+              <div className="wave-title">Sci Assistant</div>
+              <div className="wave-sub">คณะวิทยาศาสตร์ ม.อ. หาดใหญ่</div>
+            </div>
+            <div className="wave-tag">RAG v1.0</div>
+          </div>
         </div>
 
         {!hasMessages ? (
-          <div className="chat-welcome">
-            <div className="chat-logo">🤖</div>
-            <h2>สนทนาใหม่</h2>
-            <p>ถามข้อมูลเกี่ยวกับคณะวิทยาศาสตร์ หลักสูตร หรืออาจารย์</p>
-
-            {/* <div className="suggestion-grid">
-              {suggestionCards.map((text, i) => (
-                <button key={i} className="suggestion-card" onClick={() => handleSuggestionClick(text)}>
-                  {text}
-                </button>
+          <div className="welcome">
+            <div className="welcome-badges">
+              {BRANCH_ICONS.map(({ title, Icon }) => (
+                <div className="badge" key={title} title={title}>
+                  <Icon size={24} color="#0B1150" strokeWidth={1.7} />
+                </div>
               ))}
-            </div> */}
+            </div>
+            <h1>สวัสดี พร้อมตอบทุกคำถามคณะวิทย์</h1>
+            <p>ถามเรื่องหลักสูตร อาจารย์ รายวิชา หรือขั้นตอนต่างๆ ได้เลย คำตอบทุกอันอ้างอิงจากเอกสารจริงของคณะ</p>
           </div>
         ) : (
-          <div className="chat-messages">
+          <div className="messages">
             {chatHistory.map((msg, i) => (
-              <div key={i} className={msg.role === 'user' ? 'bubble user-bubble' : 'bubble bot-bubble'}>
-                {msg.text}
+              <div key={i} className={`row ${msg.role === 'user' ? 'user' : ''}`}>
+                {msg.role !== 'user' && (
+                  <div className="avatar bot"><Atom size={14} color="#FFD400" /></div>
+                )}
+                <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
+                  {msg.text}
+                </div>
+                {msg.role === 'user' && <div className="avatar user">{avatarLetter}</div>}
               </div>
             ))}
-            {isSending && <div className="bubble bot-bubble bubble-loading">กำลังค้นหาคำตอบ...</div>}
+            {isSending && (
+              <div className="row">
+                <div className="avatar bot"><Atom size={14} color="#FFD400" /></div>
+                <div className="bubble-bot">
+                  <div className="typing">
+                    <span className="dot" /><span className="dot" /><span className="dot" />
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         )}
 
-        <form onSubmit={handleSend} className="chat-input-bar">
-          <input
-            type="text"
-            placeholder="ถามข้อมูลเกี่ยวกับหลักสูตร อาจารย์ หรือรายวิชา..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            disabled={isSending}
-          />
-          <button type="submit" className="send-btn" disabled={isSending}>
-            {isSending ? '...' : '➤'}
-          </button>
-        </form>
-      </main>
+        <div className="input-zone">
+          <form className="input-bar" onSubmit={handleSend}>
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="ถามอะไรก็ได้เกี่ยวกับคณะวิทย์..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              disabled={isSending}
+            />
+            <button type="submit" className="send-btn" disabled={isSending || !message.trim()} aria-label="ส่งข้อความ">
+              <Send size={16} />
+            </button>
+          </form>
+          <p className="disclaimer">คำตอบสร้างจากเอกสารของคณะ อาจมีความคลาดเคลื่อนได้</p>
+        </div>
+      </div>
     </div>
   )
 }

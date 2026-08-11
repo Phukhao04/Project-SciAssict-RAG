@@ -1,17 +1,21 @@
 """
-Ingestion pipeline (v2 - ใช้ Docling สำหรับ .docx)
+Ingestion pipeline (v3 - ใช้ Docling สำหรับ .docx + แก้ /documents/ingest ให้ใช้งานได้จริง)
 
 หน้าที่
 1. บันทึกข้อมูลเอกสาร
-2. แปลง + chunk เอกสาร (.docx ผ่าน Docling, .pdf ผ่าน pypdf เดิม)
+2. แปลง + chunk เอกสาร (.docx ผ่าน Docling, .pdf ผ่าน pypdf เดิม, raw text ผ่าน line-split)
 3. สร้าง Embedding จาก parent_text (เนื้อหา + heading context)
 4. บันทึกลงฐานข้อมูล (schema เดิมทุกคอลัมน์ ไม่ต้องแก้ DB)
 
-เปลี่ยนจาก v1 (parent-child เขียนเอง) เป็น v2 (Docling HierarchicalChunker):
-ไม่มี parent/child แยก 2 ระดับอีกต่อไป เพราะ chunk ที่ได้จาก Docling
-ขนาดพอดีอยู่แล้ว (1 element ต่อ chunk) - chunk_text และ parent_text
-เลยมาจาก chunk เดียวกัน (คนละรูปแบบ: ดิบ vs มี context นำหน้า) ไม่ใช่
-คนละขนาดเหมือนระบบเดิม
+v3 เปลี่ยนจาก v2:
+- แยก insert_document_row() และ embed_and_insert_chunks() ออกมาเป็น
+  helper กลาง เพราะตอนนี้มี 2 เส้นทางเข้ามาที่ต้องใช้ร่วมกัน:
+  ingest_document() (จากไฟล์ .pdf/.docx) กับ ingest_text() (จาก raw text
+  ที่ endpoint /documents/ingest ส่งมา ไม่มีไฟล์จริงให้ extract)
+- เดิม endpoint /documents/ingest เรียก ingest_document(paragraphs=...)
+  ซึ่งพังทันที เพราะ signature ของ ingest_document() ตอน migrate ไป
+  Docling เปลี่ยนไปรับ filename+file_bytes แล้ว ไม่มี paragraphs อีกต่อไป
+  ตอนนี้แยกฟังก์ชันให้ชัดเจนแทน ไม่ยัดสองเคสเข้าฟังก์ชันเดียวอีก
 """
 
 import json
@@ -33,13 +37,13 @@ class UnsupportedFileTypeError(Exception):
     pass
 
 
-def clean_text(text: str) -> str:
+def clean_text(raw: str) -> str:
     """ทำความสะอาดข้อความก่อนสร้าง Embedding"""
-    text = text.replace("\u00a0", " ")
-    text = text.replace("\t", " ")
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    text = re.sub(r"[ ]{2,}", " ", text)
-    return text.strip()
+    raw = raw.replace("\u00a0", " ")
+    raw = raw.replace("\t", " ")
+    raw = re.sub(r"\n{3,}", "\n\n", raw)
+    raw = re.sub(r"[ ]{2,}", " ", raw)
+    return raw.strip()
 
 
 def _get_chunks_for_file(
@@ -73,26 +77,30 @@ def _get_chunks_for_file(
         )
 
 
-def ingest_document(
+def _get_chunks_for_text(raw_text: str, document_name: str) -> list[dict]:
+    """
+    สำหรับ endpoint /documents/ingest (รับ text ดิบ ไม่ใช่ไฟล์)
+    ไม่มี heading style ให้อ่านเหมือน .docx เลยตัดง่ายสุด: 1 บรรทัดไม่ว่าง
+    = 1 chunk (เหมือนแนวทางเดียวกับ PDF fallback ด้านบน เพื่อให้ตรรกะ
+    การ chunk ของทั้งระบบ predictable เหมือนกันในทุกเส้นทาง)
+    """
+    return [
+        {"chunk_text": line.strip(), "parent_text": f"{document_name}\n{line.strip()}"}
+        for line in raw_text.split("\n")
+        if line.strip()
+    ]
+
+
+def _insert_document_row(
     db: Session,
-    filename: str,
-    file_bytes: bytes,
     document_name: str,
     document_type: str,
     category_id: int,
     user_id: int,
-    description: str | None = None,
-) -> dict:
-    """
-    v2: รับ filename + file_bytes ตรงๆ (ไม่ใช่ paragraphs ที่ extract มาก่อน
-    แล้วเหมือน v1) เพราะ Docling ต้องการ bytes ดิบไปแปลงเป็น DoclingDocument
-    เอง - endpoint ฝั่ง api/rag.py ต้องแก้ให้ส่ง filename, file_bytes เข้ามา
-    แทนการเรียก extract_text() แยกต่างหากก่อนเหมือนเดิม
-    """
-
-    # -----------------------------
-    # 1) Insert Document
-    # -----------------------------
+    description: str | None,
+) -> int:
+    """Insert แถวใน `document` แล้วคืน document_id ที่ได้ - ใช้ร่วมกันทั้ง
+    เส้นทางไฟล์และเส้นทาง raw text"""
     insert_doc_sql = text("""
         INSERT INTO document
         (document_name, document_type, category_id, user_id, upload_date, description)
@@ -112,23 +120,17 @@ def ingest_document(
     )
     document_id = result.lastrowid
     db.commit()
+    return document_id
 
-    # -----------------------------
-    # 2) Chunk
-    # -----------------------------
-    chunks = _get_chunks_for_file(filename, file_bytes, document_name)
 
+def _embed_and_insert_chunks(db: Session, document_id: int, chunks: list[dict]) -> int:
+    """Embed แล้ว insert chunk ทั้งหมดลง document_chunk - ใช้ร่วมกันทั้ง
+    เส้นทางไฟล์และเส้นทาง raw text คืนจำนวน chunk ที่ insert สำเร็จ"""
     if not chunks:
-        return {"document_id": document_id, "chunks_inserted": 0}
+        return 0
 
-    # -----------------------------
-    # 3) Prepare Text สำหรับ Embedding (ใช้ parent_text - มี context นำหน้า)
-    # -----------------------------
     texts = [clean_text(c["parent_text"]) for c in chunks]
 
-    # -----------------------------
-    # 4) Embedding (Batch)
-    # -----------------------------
     embedder = get_embedder()
     embeddings = embedder.encode(
         texts,
@@ -137,9 +139,6 @@ def ingest_document(
         show_progress_bar=False,
     ).tolist()
 
-    # -----------------------------
-    # 5) Insert Chunks
-    # -----------------------------
     insert_chunk_sql = text("""
         INSERT INTO document_chunk
         (document_id, chunk_text, parent_text, embedding_vector, created_at)
@@ -159,8 +158,53 @@ def ingest_document(
         )
 
     db.commit()
+    return len(chunks)
 
-    return {
-        "document_id": document_id,
-        "chunks_inserted": len(chunks),
-    }
+
+def ingest_document(
+    db: Session,
+    filename: str,
+    file_bytes: bytes,
+    document_name: str,
+    document_type: str,
+    category_id: int,
+    user_id: int,
+    description: str | None = None,
+) -> dict:
+    """
+    เส้นทางไฟล์ (.pdf / .docx) - ใช้กับ endpoint /documents/upload
+    รับ filename + file_bytes ตรงๆ เพราะ Docling ต้องการ bytes ดิบไปแปลง
+    เป็น DoclingDocument เอง
+    """
+    document_id = _insert_document_row(
+        db, document_name, document_type, category_id, user_id, description
+    )
+
+    chunks = _get_chunks_for_file(filename, file_bytes, document_name)
+    chunks_inserted = _embed_and_insert_chunks(db, document_id, chunks)
+
+    return {"document_id": document_id, "chunks_inserted": chunks_inserted}
+
+
+def ingest_text(
+    db: Session,
+    raw_text: str,
+    document_name: str,
+    document_type: str,
+    category_id: int,
+    user_id: int,
+    description: str | None = None,
+) -> dict:
+    """
+    เส้นทาง raw text (ไม่มีไฟล์จริง) - ใช้กับ endpoint /documents/ingest
+    เดิม endpoint นี้เรียก ingest_document(paragraphs=...) ซึ่งพังเพราะ
+    signature ไม่ตรงกันแล้ว ตอนนี้แยกฟังก์ชันเฉพาะให้ชัดเจน
+    """
+    document_id = _insert_document_row(
+        db, document_name, document_type, category_id, user_id, description
+    )
+
+    chunks = _get_chunks_for_text(raw_text, document_name)
+    chunks_inserted = _embed_and_insert_chunks(db, document_id, chunks)
+
+    return {"document_id": document_id, "chunks_inserted": chunks_inserted}
