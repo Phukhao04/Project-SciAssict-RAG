@@ -1,12 +1,17 @@
 import AppConfig from "../config/appConfig";
 
-// ทำไมแยกไฟล์จาก authService.js: เป็นคนละโดเมนงานกัน (RAG vs Authentication)
-// เก็บรวมกันจะทำให้ไฟล์เดียวทำหน้าที่ปนกันมากเกินไป
+function authHeaders() {
+  const token = localStorage.getItem("access_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export async function chatRequest(question, userId, sessionId = null, k = 5) {
   const response = await fetch(`${AppConfig.apiBaseUri}/rag/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json; charset=UTF-8" },
+    headers: {
+      "Content-Type": "application/json; charset=UTF-8",
+      ...authHeaders(),
+    },
     body: JSON.stringify({ question, k, user_id: userId, session_id: sessionId }),
   });
 
@@ -22,14 +27,18 @@ export async function chatRequest(question, userId, sessionId = null, k = 5) {
   };
 }
 
-export async function getSessions(userId) {
-  const response = await fetch(`${AppConfig.apiBaseUri}/chat/sessions/${userId}`);
+export async function getSessions() {
+  const response = await fetch(`${AppConfig.apiBaseUri}/chat/sessions`, {
+    headers: { ...authHeaders() },
+  });
   if (response.status !== 200) return [];
   return await response.json();
 }
 
 export async function getSessionMessages(sessionId) {
-  const response = await fetch(`${AppConfig.apiBaseUri}/chat/sessions/${sessionId}/messages`);
+  const response = await fetch(`${AppConfig.apiBaseUri}/chat/sessions/${sessionId}/messages`, {
+    headers: { ...authHeaders() },
+  });
   if (response.status !== 200) return [];
   return await response.json();
 }

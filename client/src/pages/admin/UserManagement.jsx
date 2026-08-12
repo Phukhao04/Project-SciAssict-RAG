@@ -33,6 +33,7 @@ export default function UserManagement() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [dropUp, setDropUp] = useState(false); // true = เปิดเมนูขึ้นด้านบน (กันโดนขอบล่างของพื้นที่สกรอลตัดขอบ)
   const [updatingUserId, setUpdatingUserId] = useState(null); // กันกดซ้ำระหว่างรอผล
 
   const menuRef = useRef(null);
@@ -95,6 +96,18 @@ export default function UserManagement() {
         .includes(q)
     );
   }, [users, search]);
+
+  function toggleMenu(e, userId) {
+    if (openMenuId === userId) {
+      setOpenMenuId(null);
+      return;
+    }
+    // ถ้าพื้นที่ด้านล่างปุ่มไม่พอสำหรับเมนู ให้เปิดขึ้นด้านบนแทน
+    const rect = e.currentTarget.getBoundingClientRect();
+    const estimatedDropdownHeight = 220;
+    setDropUp(window.innerHeight - rect.bottom < estimatedDropdownHeight);
+    setOpenMenuId(userId);
+  }
 
   async function handleRoleChange(userId, newRoleId, displayName) {
     setOpenMenuId(null);
@@ -242,14 +255,12 @@ export default function UserManagement() {
                                 aria-haspopup="true"
                                 aria-expanded={openMenuId === u.user_id}
                                 disabled={isUpdating}
-                                onClick={() =>
-                                  setOpenMenuId(openMenuId === u.user_id ? null : u.user_id)
-                                }
+                                onClick={(e) => toggleMenu(e, u.user_id)}
                               >
                                 {isUpdating ? "กำลังบันทึก..." : "แก้ไข ▾"}
                               </button>
                               {openMenuId === u.user_id && (
-                                <div className="um-dropdown">
+                                <div className={`um-dropdown${dropUp ? " um-dropdown-up" : ""}`}>
                                   {isSelf ? (
                                     <div className="um-dropdown-label">
                                       ไม่สามารถแก้ไขบัญชีตัวเองได้จากหน้านี้
