@@ -75,6 +75,14 @@ function AdminSidebar() {
           </li>
           <li>
             <Link
+              to="/admin/mark-headings"
+              className={isActive('/admin/mark-headings') ? 'admin-menu-item active' : 'admin-menu-item'}
+            >
+              ทำเครื่องหมายหัวข้อเอง
+            </Link>
+          </li>
+          <li>
+            <Link
               to="/admin/documents"
               className={isActive('/admin/documents') ? 'admin-menu-item active' : 'admin-menu-item'}
             >

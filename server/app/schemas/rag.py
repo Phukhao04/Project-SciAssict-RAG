@@ -47,6 +47,7 @@ class DocumentListItem(BaseModel):
 class DocumentChunkItem(BaseModel):
     chunk_id: int
     chunk_text: str
+    parent_text: str
 
 class DocumentDetailResponse(BaseModel):
     document_id: int

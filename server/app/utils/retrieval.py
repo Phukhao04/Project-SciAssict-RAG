@@ -14,6 +14,15 @@ v2: เพิ่ม heading-match เพราะเจอจริงจาก�
 ทั้งที่คำถามถามหาปีที่ 1 ชัดเจน - ปัญหานี้เป็นที่รู้จักกันดีว่า dense
 retrieval แม่นน้อยกว่ากับ query ที่มี exact identifier (เลขปี/เทอม)
 ชัดเจนอยู่แล้ว ทางแก้ตรงจุดคือ bypass vector search ไปเลยกรณีนี้
+
+v2.1: เพิ่ม log แยกกรณี "คำถามไม่มีเลขปี" (ปกติ, ไม่ log) ออกจากกรณี
+      "คำถามมีเลขปีชัดเจน แต่ query แล้วไม่เจอแถวไหนตรงเงื่อนไขเลย"
+      (ผิดปกติ, log เป็น warning) - ก่อนหน้านี้สองกรณีนี้คืนค่า [] เหมือนกัน
+      แล้ว fallback ไป vector search แบบเงียบๆ ทำให้แยกไม่ออกว่า list
+      วิชาที่หายไปบางครั้งเกิดจาก (ก) LLM ตัดทิ้งตอน generate หรือ
+      (ข) heading-match ควร fire แต่ไม่ fire เพราะ regex/LIKE pattern
+      ไม่ตรงกับ format จริงในเอกสาร แล้วหลุดไปใช้ vector search ซึ่งรู้อยู่
+      แล้วว่าแม่นน้อยกว่าสำหรับคำถามแบบนี้
 """
 
 import json
@@ -60,6 +69,9 @@ def _try_heading_match(db: Session, question: str) -> list[RetrievedChunk]:
     ที่ parent_text มี heading ตรงเงื่อนไขทั้งหมดที่คำถามระบุ (ปี, เทอมถ้ามี,
     แบบสหกิจ/ไม่สหกิจถ้ามี) คืน list ว่างถ้าไม่มีเลขปีในคำถามเลย (ให้
     retrieve() ไป fallback ใช้ vector search ตามปกติ)
+
+    หมายเหตุ: list ว่างที่คืนออกไปมีได้ 2 ความหมายที่ต่างกัน ดู log
+    ใน retrieve() สำหรับการแยกแยะ
     """
     year_match = YEAR_PATTERN.search(question)
     if not year_match:
@@ -99,6 +111,19 @@ def _try_heading_match(db: Session, question: str) -> list[RetrievedChunk]:
 
     rows = db.execute(sql, params).fetchall()
 
+    if not rows:
+        # คำถามมีเลขปีชัดเจน (year_match เจอ) แต่ query แล้วไม่เจอแถวไหน
+        # ตรงเงื่อนไขเลย - นี่คือ regex/LIKE pattern ไม่ตรงกับ heading จริง
+        # ในเอกสาร ไม่ใช่พฤติกรรมปกติ ต้องรู้ตัวว่าเกิดกรณีนี้ เพราะ path
+        # ที่จะ fallback ไป (vector search) รู้อยู่แล้วว่าแม่นน้อยกว่า
+        # สำหรับคำถามที่มีเลขปีชัดเจนแบบนี้ (ดู docstring ด้านบนของไฟล์)
+        logger.warning(
+            f"[retrieve] heading-match เจอเลขปี/เทอมในคำถาม แต่ไม่มี chunk "
+            f"ไหนตรงเงื่อนไขเลย - กำลังหลุดไป vector search แทน "
+            f"(คำถาม: {question!r}, เงื่อนไขที่ใช้ค้นหา: {params!r})"
+        )
+    if rows:
+        logger.info(f"[retrieve] heading-match chunk content: {rows[0].parent_text[:2000]}")
     return [
         RetrievedChunk(
             chunk_text=row.chunk_text,
@@ -156,8 +181,9 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
 
     ลอง heading-match ก่อนเสมอ (ถ้าคำถามระบุปีชัดเจน) เพราะแม่นกว่า
     vector search มากสำหรับคำถามแบบนี้ - ถ้าไม่ match อะไรเลย (คำถามไม่มี
-    เลขปี หรือ heading match แล้วไม่เจอแถวไหนตรงเงื่อนไขจริงๆ) ค่อย
-    fallback ไป vector search ตามปกติ
+    เลขปี หรือ heading match แล้วไม่เจอแถวไหนตรงเงื่อนไขจริงๆ - ดู warning
+    log ใน _try_heading_match สำหรับกรณีหลัง) ค่อย fallback ไป vector
+    search ตามปกติ
     """
     heading_matches = _try_heading_match(db, query_text_str)
     if heading_matches:

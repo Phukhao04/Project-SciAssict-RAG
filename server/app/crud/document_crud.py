@@ -113,8 +113,13 @@ def get_document_detail(db: Session, document_id: int) -> dict | None:
 
     # ORDER BY chunk_id ใช้แทนลำดับต้นฉบับ เพราะ document_chunk ไม่มี
     # คอลัมน์ลำดับเก็บไว้จริงๆ - ใช้ได้เพราะ ingestion insert เรียงตามลำดับ chunk เดิม
+    #
+    # ดึง parent_text เพิ่ม (เดิมดึงแค่ chunk_text) เพราะ heading ของแต่ละ
+    # chunk อยู่ใน parent_text เท่านั้น (รูปแบบ "heading1 > heading2\nbody")
+    # ถ้าไม่ส่ง parent_text มาด้วย frontend จะไม่มีทางรู้เลยว่า chunk นี้
+    # อยู่ใต้หัวข้ออะไร - เป็นสาเหตุที่หน้าดู chunk ดูมั่ว ไม่รู้ว่าอะไรคืออะไร
     chunks_sql = text("""
-        SELECT chunk_id, chunk_text
+        SELECT chunk_id, chunk_text, parent_text
         FROM document_chunk
         WHERE document_id = :document_id
         ORDER BY chunk_id ASC
@@ -128,7 +133,12 @@ def get_document_detail(db: Session, document_id: int) -> dict | None:
         "category_name": doc_row.category_name,
         "upload_date": doc_row.upload_date,
         "chunks": [
-            {"chunk_id": r.chunk_id, "chunk_text": r.chunk_text} for r in chunk_rows
+            {
+                "chunk_id": r.chunk_id,
+                "chunk_text": r.chunk_text,
+                "parent_text": r.parent_text,
+            }
+            for r in chunk_rows
         ],
     }
 
