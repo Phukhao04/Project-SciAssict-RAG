@@ -595,3 +595,220 @@
 .error-message {
   color: #C0392B !important;
 }
+
+/* ===== Manual Heading Marking ===== */
+
+.line-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.line-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.line-row:hover { background-color: #FDFBF2; }
+
+.line-row.is-table { background-color: #FFF6C9; }
+
+.line-row.is-table:hover { background-color: #FFF0A8; }
+
+.line-text {
+  flex: 1;
+  color: #181A2A;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.line-row.is-table .line-text {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.level-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #E7E4D6;
+  background-color: #ffffff;
+  color: #a39d8c;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.level-btn:hover { border-color: #0B1150; }
+
+.level-btn.level-1 {
+  background-color: #0B1150;
+  color: #FFD400;
+  border-color: #0B1150;
+}
+
+.level-btn.level-2 {
+  background-color: #4a52a3;
+  color: #ffffff;
+  border-color: #4a52a3;
+}
+
+.level-btn.level-3 {
+  background-color: #E7EAF7;
+  color: #0B1150;
+  border-color: #b9c0e6;
+}
+
+.mark-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.mark-actions .upload-btn { width: auto; padding: 12px 24px; }
+
+.chunk-detail-static {
+  padding: 16px;
+  border-top: none;
+}
+
+/* ===== Document Chunks — แสดง heading ให้เห็นชัด ===== */
+
+.outline-panel { margin-top: 20px; }
+
+.outline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.outline-item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: #4b4a44;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.outline-item:hover {
+  background-color: #FFF6C9;
+  color: #0B1150;
+}
+
+.heading-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.heading-chip {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.heading-chip-1 { background-color: #0B1150; color: #FFD400; }
+.heading-chip-2 { background-color: #4a52a3; color: #ffffff; }
+.heading-chip-3 { background-color: #E7EAF7; color: #0B1150; }
+
+.heading-sep { color: #a39d8c; font-size: 12px; }
+
+.tag-no-heading {
+  background-color: #F1EFE6;
+  color: #a39d8c;
+}
+
+.chunk-heading-row {
+  padding: 12px 16px 0;
+}
+
+.full-doc-section {
+  padding: 14px 0;
+  border-bottom: 1px solid #E7E4D6;
+}
+
+.full-doc-section:last-child { border-bottom: none; }
+
+.full-doc-heading { margin-bottom: 8px; }
+
+/* ===== Mark Headings — layout ใหม่ (ค้นหา + คีย์บอร์ด + สารบัญสด) ===== */
+
+.mark-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.mark-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.mark-search { width: 100%; margin-bottom: 8px; }
+
+.filter-hint {
+  color: #a39d8c;
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+
+.mark-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.mark-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.clear-marks-btn {
+  background: none;
+  border: none;
+  color: #C0392B;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.clear-marks-btn:hover { text-decoration: underline; }
+
+.outline-empty {
+  color: #a39d8c;
+  font-size: 13px;
+  margin: 0;
+}
+
+.mark-sidebar .outline-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.line-row:focus {
+  outline: 2px solid #0B1150;
+  outline-offset: -2px;
+  background-color: #FFF6C9;
+}
+
+@media (max-width: 900px) {
+  .mark-layout { flex-direction: column; }
+  .mark-sidebar { width: 100%; position: static; max-height: none; }
+}

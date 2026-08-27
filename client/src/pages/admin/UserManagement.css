@@ -68,7 +68,8 @@
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid #E7E4D6;
-  overflow: hidden;
+  /* ไม่ใช้ overflow: hidden เพราะจะตัดเมนู dropdown ของแถวท้าย ๆ
+     ปัดมุมโค้งผ่าน corner cell ด้านล่างแทน (thead/tbody:last-child) */
 }
 
 .um-table {
@@ -84,6 +85,11 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+.um-table thead tr:first-child th:first-child { border-top-left-radius: 12px; }
+.um-table thead tr:first-child th:last-child { border-top-right-radius: 12px; }
+.um-table tbody tr:last-child td:first-child { border-bottom-left-radius: 12px; }
+.um-table tbody tr:last-child td:last-child { border-bottom-right-radius: 12px; }
 
 .um-table td {
   padding: 14px 16px;
@@ -183,3 +189,11 @@
 
 .um-dropdown-danger { color: #a13a2e; }
 .um-dropdown-danger:hover { background-color: #fdf3f1; }
+
+/* เมื่อพื้นที่ด้านล่างปุ่มไม่พอ (ใกล้ขอบล่างของพื้นที่สกรอล) ให้เปิดเมนูขึ้นด้านบนแทน */
+.um-dropdown-up {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 6px;
+}

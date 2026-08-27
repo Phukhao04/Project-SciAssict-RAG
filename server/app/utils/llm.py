@@ -1,11 +1,3 @@
-"""
-LLM Generation Service
-
-v2: ตัดการ reformat ROW_MARKER ออก (ไม่จำเป็นอีกต่อไป) เพราะ parent_text
-ที่ได้จาก Docling (ผ่าน contextualize()) เป็นข้อความที่มี heading context
-นำหน้าและอ่านง่ายอยู่แล้วตั้งแต่ต้นทาง ไม่ต้องมาแปลงซ้ำตอนสร้าง prompt
-"""
-
 import ollama
 from sqlalchemy.orm import Session
 
@@ -14,24 +6,6 @@ from app.prompts.rag_system_prompt import SYSTEM_PROMPT, PROMPT_VERSION
 
 
 def _format_heading_match_answer(chunks: list) -> str:
-    """
-    จัดรูปแบบคำตอบตรงๆ จาก parent_text โดยไม่ผ่าน LLM เลย
-
-    เหตุผล: ทดสอบแล้วหลายรอบว่า llama3.2 (โมเดลเล็กที่รันบน Ollama)
-    ไม่น่าเชื่อถือพอที่จะแจกแจง list รายวิชายาวๆ ให้ครบทุกตัวพร้อม
-    รายละเอียด (รหัส/ชื่อ/หน่วยกิต) แม้จะสั่งเน้นย้ำในระบบ prompt แล้วก็
-    ตาม (ตัดวิชา/รหัส/หน่วยกิตทิ้งไปเองซ้ำๆ ทั้งที่ context ที่ได้รับถูก
-    100%) วิธีที่แน่นอนกว่าคือไม่ต้องพึ่งการ "เรียบเรียงคำตอบ" ของ LLM
-    เลยสำหรับกรณีนี้ - format ข้อมูลที่ retrieve มาได้ตรงๆ แทน
-
-    ใช้เฉพาะกรณี heading-match สำเร็จ (คำถามระบุปี/เทอมชัดเจน - ดู
-    retrieval.py) เพราะมั่นใจได้ว่าข้อมูลถูกต้อง 100% อยู่แล้ว ไม่ใช่แค่
-    "น่าจะเกี่ยวข้อง" แบบผลจาก vector search
-
-    v1.1: เติมประโยคขึ้นต้นแบบ template (ไม่ใช่ LLM สร้าง) ให้คำตอบดูเป็น
-    แชทมากขึ้น แทนที่จะเป็น list ดิบๆ ล้วน - ยังคง deterministic 100%
-    เพราะ template มาจาก heading ที่มีอยู่แล้วตรงๆ ไม่ได้ให้โมเดลแต่งเอง
-    """
     sections = []
     for chunk in chunks:
         lines = chunk.parent_text.strip().split("\n")
@@ -105,11 +79,8 @@ def generate_answer(
             options={
                 "temperature": 0,
                 "top_p": 0.9,
-                "num_predict": 1024,  # เพิ่มจาก 512 - เผื่อคำตอบยาวขึ้นตอน context สมบูรณ์กว่าเดิม
-                "num_ctx": 4096,  # เพิ่มเข้ามาใหม่ - เดิมไม่เคยตั้งเลย อาจทำให้ context
-                # window เล็กเกินไปจน generation โดนตัดก่อนจบ
-                # (ยิ่งค่าสูง ยิ่งกิน RAM/VRAM มากขึ้น 4096 เป็นค่าที่
-                # ปลอดภัยสำหรับ llama3.2 บนเครื่องทั่วไป)
+                "num_predict": 1024,
+                "num_ctx": 4096,
             },
         )
         return response["message"]["content"].strip()

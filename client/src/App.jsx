@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Chat from './pages/Chat'
 import Dashboard from './pages/admin/Dashboard'
 import UploadDocument from './pages/admin/UploadDocument'
+import MarkHeadings from './pages/admin/MarkHeadings'
 import DocumentManagement from './pages/admin/DocumentManagement'
 import DocumentChunks from './pages/admin/DocumentChunks'
 import UserManagement from './pages/admin/UserManagement'
@@ -32,6 +33,11 @@ function App() {
         path="/admin/upload"
         element={<ProtectedRoute>
           <UploadDocument />
+        </ProtectedRoute>} />
+      <Route
+        path="/admin/mark-headings"
+        element={<ProtectedRoute>
+          <MarkHeadings />
         </ProtectedRoute>} />
       <Route
         path="/admin/documents"

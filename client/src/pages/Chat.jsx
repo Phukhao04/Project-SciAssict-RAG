@@ -6,7 +6,7 @@ import {
   Plus,
   Settings,
   LogOut,
-  User,          // <-- เพิ่ม
+  User,
   Send,
   FlaskConical,
   Dna,
@@ -41,7 +41,8 @@ function Chat() {
 
   useEffect(() => {
     if (!user?.user_id) return
-    getSessions(user.user_id).then(setSessions)
+    // แก้: getSessions ไม่รับ user_id แล้ว เพราะ backend ดึงจาก JWT เอง (กัน IDOR)
+    getSessions().then(setSessions)
   }, [user?.user_id])
 
   useEffect(() => {
@@ -77,7 +78,8 @@ function Chat() {
 
       if (!activeSessionId) {
         setActiveSessionId(result.sessionId)
-        const updatedSessions = await getSessions(user.user_id)
+        // แก้: getSessions ไม่รับ user_id แล้ว เช่นเดียวกับด้านบน
+        const updatedSessions = await getSessions()
         setSessions(updatedSessions)
       }
     } catch (err) {
