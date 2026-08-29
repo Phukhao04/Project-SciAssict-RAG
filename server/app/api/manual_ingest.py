@@ -42,6 +42,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/rag/documents", tags=["manual-ingest"])
 
+# เท่ากับ MAX_FILE_SIZE_MB ใน rag.py (/documents/upload) - endpoint นี้เดิม
+# ไม่มีการเช็คขนาดไฟล์เลย ทำให้เสียการป้องกันไปเงียบๆ ถ้า frontend เปลี่ยน
+# มาเรียก endpoint นี้แทน (เช่นตอนรวมหน้าอัปโหลด+mark heading เป็นหน้าเดียว)
+MAX_FILE_SIZE_MB = 20
+
 
 # ---------- Schemas ----------
 
@@ -49,6 +54,7 @@ class RawLineOut(BaseModel):
     index: int
     kind: str
     text: str
+    suggested_level: int = 0
 
 
 class ParseRawResponse(BaseModel):
@@ -110,6 +116,12 @@ async def parse_raw(
 
     file_bytes = await file.read()
 
+    size_mb = len(file_bytes) / (1024 * 1024)
+    if size_mb > MAX_FILE_SIZE_MB:
+        raise HTTPException(
+            status_code=413, detail=f"ไฟล์ใหญ่เกิน {MAX_FILE_SIZE_MB}MB"
+        )
+
     try:
         raw_lines = parser(file_bytes)
     except Exception as exc:
@@ -127,7 +139,12 @@ async def parse_raw(
 
     return ParseRawResponse(
         lines=[
-            RawLineOut(index=ln.index, kind=ln.kind, text=ln.text)
+            RawLineOut(
+                index=ln.index,
+                kind=ln.kind,
+                text=ln.text,
+                suggested_level=ln.suggested_level,
+            )
             for ln in raw_lines
         ]
     )

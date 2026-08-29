@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "some-secret-key"
     jwt_algorithm: str = "HS256"
     jwt_expires_days: int = 1
+    
+    dotblue_api_key: str
 
     class Config:
         env_file = ".env"

@@ -25,6 +25,7 @@ auto-detection
 """
 
 import io
+import re
 from dataclasses import dataclass
 
 from docx import Document as DocxDocument
@@ -39,6 +40,27 @@ class RawLine:
     index: int
     kind: str  # "paragraph" | "table_row"
     text: str
+    # ถ้าไฟล์มี Word heading style (Heading 1/2/...) ติดมาอยู่แล้ว เก็บ
+    # level ไว้เป็น "คำแนะนำเริ่มต้น" ให้ frontend pre-fill การ mark ให้
+    # แอดมินตรวจสอบ/แก้ไขได้ ไม่ใช่ apply ตรงเข้า DB เลย - แอดมินยังต้อง
+    # ตรวจสอบผ่าน UI เหมือนเดิมเป๊ะ (ต่างจาก Docling เดิมที่ auto-apply
+    # โดยไม่มีจุดให้ตรวจสอบก่อน) ค่า 0 = ไม่มี style ให้อ้างอิง หรือเป็น
+    # PDF ที่ไม่มีข้อมูล style ให้อ่านเลย
+    suggested_level: int = 0
+
+
+_WORD_HEADING_STYLE_PATTERN = re.compile(r"heading\s*(\d+)", re.IGNORECASE)
+
+
+def _style_to_heading_level(style_name: str | None) -> int:
+    """แปลงชื่อ Word style (เช่น 'Heading 1', 'Heading 2') เป็นเลข level
+    คืน 0 ถ้าไม่ใช่ heading style (เช่น 'Normal', 'Title', ตัวหนาเฉยๆ)"""
+    if not style_name:
+        return 0
+    match = _WORD_HEADING_STYLE_PATTERN.match(style_name.strip())
+    if not match:
+        return 0
+    return int(match.group(1))
 
 
 @dataclass
@@ -80,7 +102,16 @@ def parse_raw_docx(file_bytes: bytes) -> list[RawLine]:
         if isinstance(block, Paragraph):
             text = block.text.strip()
             if text:
-                lines.append(RawLine(index=idx, kind="paragraph", text=text))
+                style_name = block.style.name if block.style else None
+                suggested = _style_to_heading_level(style_name)
+                lines.append(
+                    RawLine(
+                        index=idx,
+                        kind="paragraph",
+                        text=text,
+                        suggested_level=suggested,
+                    )
+                )
                 idx += 1
         elif isinstance(block, Table):
             for row in block.rows:
@@ -140,14 +171,23 @@ def build_chunks_from_marks(
 
     groups: list[tuple[tuple, list[str]]] = []
     current_lines: list[str] = []
+    # เดิม flush_group() บันทึกกลุ่มเฉพาะตอน current_lines ไม่ว่างเปล่า -
+    # ทำให้ heading ที่ไม่มีเนื้อหาใต้เลย (เช่น mark heading ติดกันหลายอัน
+    # โดยไม่มีบรรทัดเนื้อหาคั่นระหว่างกลาง) หายไปเงียบๆ ทั้งที่ marks ที่
+    # ส่งมาไม่ได้ว่างเปล่า ถ้าเกิดกับทุก heading พร้อมกัน results จะกลาย
+    # เป็น [] ทั้งที่ควรมีอย่างน้อย 1 chunk - has_current_heading ใช้เช็ค
+    # แยกว่า "มี heading ที่ยังไม่ได้ flush อยู่ไหม" เพื่อไม่ให้หลุดกรณีนี้
+    has_current_heading = False
 
     def current_heading_tuple() -> tuple:
         return tuple(heading_stack[lvl] for lvl in sorted(heading_stack))
 
     def flush_group():
-        if current_lines:
+        nonlocal has_current_heading
+        if current_lines or has_current_heading:
             groups.append((current_heading_tuple(), list(current_lines)))
             current_lines.clear()
+        has_current_heading = False
 
     for line in lines:
         if line.index in mark_by_index:
@@ -157,6 +197,7 @@ def build_chunks_from_marks(
                 if lvl >= level:
                     del heading_stack[lvl]
             heading_stack[level] = line.text
+            has_current_heading = True
         else:
             current_lines.append(line.text)
 
@@ -165,6 +206,15 @@ def build_chunks_from_marks(
     results: list[dict] = []
     for heading, body_lines in groups:
         heading_str = " > ".join(heading) if heading else ""
+
+        if not body_lines:
+            # heading ไม่มีเนื้อหาใต้เลย - ใช้ heading เองเป็นเนื้อหาแทน
+            # ปล่อย chunk_text ว่างเปล่า (ว่างเปล่าไม่มีประโยชน์ตอน embed
+            # และ heading tuple ว่างพร้อม body ว่างจะไม่มีทางเกิดขึ้นได้อยู่
+            # แล้วจาก logic ด้านบน จึงไม่ต้องกัน heading_str ว่างซ้ำอีก)
+            results.append({"chunk_text": heading_str, "parent_text": heading_str})
+            continue
+
         batch: list[str] = []
         batch_len = 0
 

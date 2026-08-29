@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import "./UserManagement.css";
-import AdminSidebar from '../../components/admin/AdminSidebar'
+import { Search } from "lucide-react";
+import AdminLayout from "../../components/admin/AdminLayout";
 import AppConfig from "../../config/appConfig";
+import { authHeaders } from "../../utils/authHeaders";
+import "./UserManagement.css";
 
 const API_BASE = AppConfig.apiBase;
 
@@ -14,11 +16,6 @@ function getCurrentUserId() {
   } catch {
     return null;
   }
-}
-
-function authHeaders() {
-  const token = localStorage.getItem("access_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 const ROLE_BADGE_CLASS = {
@@ -180,12 +177,8 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="admin-page">
-      <AdminSidebar />
-
-      <main className="admin-main">
-        <div className="admin-content">
-          <div className="um-page">
+    <AdminLayout>
+      <div className="um-page">
             <div className="um-header">
               <div>
                 <h1 className="um-title">จัดการผู้ใช้งาน</h1>
@@ -195,10 +188,7 @@ export default function UserManagement() {
 
             <div className="um-toolbar">
               <div className="um-search">
-                <svg className="um-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
+                <Search className="um-search-icon" size={16} />
                 <input
                   type="text"
                   aria-label="ค้นหาผู้ใช้"
@@ -305,9 +295,7 @@ export default function UserManagement() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

@@ -1,42 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import AdminSidebar from "../../components/admin/AdminSidebar";
+import AdminLayout from "../../components/admin/AdminLayout";
+import HeadingBreadcrumb from "../../components/admin/HeadingBreadcrumb";
+import AppConfig from "../../config/appConfig";
+import { extractChunkHeading } from "../../utils/chunkHeading";
 import "./Admin.css";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = AppConfig.apiBase;
 const PREVIEW_LENGTH = 80;
 
-// parent_text = "heading1 > heading2\n" + chunk_text (ถ้ามี heading)
-// หรือ parent_text === chunk_text เฉยๆ (ถ้าไม่มี heading เลย)
-// เทียบสองค่านี้แทนที่จะ parse เอง เพราะรูปแบบตรงกับที่ backend
-// ประกอบไว้ตอน insert เป๊ะอยู่แล้ว (ดู _merge_chunks_by_heading /
-// build_chunks_from_marks ฝั่ง server)
-function extractHeadingPath(parentText, chunkText) {
-  if (!parentText || parentText === chunkText) return null;
-  if (parentText.length > chunkText.length && parentText.endsWith(chunkText)) {
-    const prefix = parentText.slice(0, parentText.length - chunkText.length);
-    const heading = prefix.replace(/\n$/, "");
-    return heading || null;
-  }
-  return null;
-}
-
-function HeadingBreadcrumb({ path }) {
-  if (!path) {
-    return <span className="tag tag-no-heading">ไม่มีหัวข้อกำกับ</span>;
-  }
-  const parts = path.split(" > ");
-  return (
-    <div className="heading-breadcrumb">
-      {parts.map((part, i) => (
-        <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {i > 0 && <span className="heading-sep">›</span>}
-          <span className={`heading-chip heading-chip-${Math.min(i + 1, 3)}`}>{part}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
+// wrapper: util คืน "" เมื่อไม่มี heading แต่โค้ดหน้านี้เช็ก `=== null` อยู่หลายจุด
+const extractHeadingPath = (parentText, chunkText) =>
+  extractChunkHeading(parentText, chunkText) || null;
 
 function DocumentChunks() {
   const { id } = useParams();
@@ -117,40 +92,26 @@ function DocumentChunks() {
 
   if (isLoading) {
     return (
-      <div className="admin-page">
-        <AdminSidebar />
-        <main className="admin-main">
-          <div className="admin-content">
-            <p>กำลังโหลดข้อมูลเอกสาร...</p>
-          </div>
-        </main>
-      </div>
+      <AdminLayout>
+        <p>กำลังโหลดข้อมูลเอกสาร...</p>
+      </AdminLayout>
     );
   }
 
   if (loadError || !doc) {
     return (
-      <div className="admin-page">
-        <AdminSidebar />
-        <main className="admin-main">
-          <div className="admin-content">
-            <button className="back-link" onClick={() => navigate("/admin/documents")}>
-              &lt; กลับ
-            </button>
-            <p className="error-message">{loadError || "ไม่พบเอกสารนี้ในระบบ"}</p>
-          </div>
-        </main>
-      </div>
+      <AdminLayout>
+        <button className="back-link" onClick={() => navigate("/admin/documents")}>
+          &lt; กลับ
+        </button>
+        <p className="error-message">{loadError || "ไม่พบเอกสารนี้ในระบบ"}</p>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="admin-page">
-      <AdminSidebar />
-
-      <main className="admin-main">
-        <div className="admin-content">
-          <div className="chunks-header">
+    <AdminLayout>
+      <div className="chunks-header">
             <button className="back-link" onClick={() => navigate("/admin/documents")}>
               &lt; {doc.document_name}
             </button>
@@ -255,9 +216,7 @@ function DocumentChunks() {
               })}
             </div>
           )}
-        </div>
-      </main>
-    </div>
+    </AdminLayout>
   );
 }
 

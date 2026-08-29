@@ -1,9 +1,5 @@
 import AppConfig from "../config/appConfig";
-
-function authHeaders() {
-  const token = localStorage.getItem("access_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+import { authHeaders } from "./authHeaders";
 
 export async function chatRequest(question, userId, sessionId = null, k = 5) {
   const response = await fetch(`${AppConfig.apiBaseUri}/rag/chat`, {
