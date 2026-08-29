@@ -1093,3 +1093,38 @@
 }
 
 .switch-page-btn:hover { background-color: #ffffff; color: #0B1150; border-color: #0B1150; }
+
+/* ===== DocumentChunks — ดูเนื้อหา + แก้ไข chunk ===== */
+
+.doc-search-wrap { margin: 16px 0 4px; }
+
+.chunk-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 0;
+}
+
+.chunk-edit-btn {
+  background: none;
+  border: 1px solid #E7E4D6;
+  color: #0B1150;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.chunk-edit-btn:hover { background-color: #FFF6C9; border-color: #0B1150; }
+
+.chunk-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* .upload-btn ปกติกว้างเต็ม container (ใช้กับปุ่มหลักเต็มความกว้างของฟอร์ม
+   ตอนอัปโหลด) แต่ในนี้ต้องการแค่ปุ่มเล็กพอดีเนื้อหา ไม่ยืดเต็มการ์ด */
+.chunk-save-btn { width: auto; padding: 8px 20px; font-size: 13px; }

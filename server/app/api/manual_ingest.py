@@ -20,11 +20,18 @@ rag.py ที่ดูแล document endpoints อื่นๆ อยู่แ�
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.rag import IngestResponse
+from app.schemas.manual_ingest import (
+    BuildChunksRequest,
+    BuildChunksResponse,
+    ChunkPreview,
+    ConfirmManualIngestRequest,
+    ParseRawResponse,
+    RawLineOut,
+)
 from app.utils.ingest_manual import (
     HeadingMark,
     RawLine,
@@ -46,47 +53,6 @@ router = APIRouter(prefix="/api/rag/documents", tags=["manual-ingest"])
 # ไม่มีการเช็คขนาดไฟล์เลย ทำให้เสียการป้องกันไปเงียบๆ ถ้า frontend เปลี่ยน
 # มาเรียก endpoint นี้แทน (เช่นตอนรวมหน้าอัปโหลด+mark heading เป็นหน้าเดียว)
 MAX_FILE_SIZE_MB = 20
-
-
-# ---------- Schemas ----------
-
-class RawLineOut(BaseModel):
-    index: int
-    kind: str
-    text: str
-    suggested_level: int = 0
-
-
-class ParseRawResponse(BaseModel):
-    lines: list[RawLineOut]
-
-
-class HeadingMarkIn(BaseModel):
-    line_index: int
-    level: int
-
-
-class BuildChunksRequest(BaseModel):
-    lines: list[RawLineOut]
-    marks: list[HeadingMarkIn]
-
-
-class ChunkPreview(BaseModel):
-    chunk_text: str
-    parent_text: str
-
-
-class BuildChunksResponse(BaseModel):
-    chunks: list[ChunkPreview]
-
-
-class ConfirmManualIngestRequest(BaseModel):
-    chunks: list[ChunkPreview]
-    document_name: str
-    document_type: str
-    category_id: int
-    user_id: int
-    description: str | None = None
 
 
 # ---------- Endpoints ----------

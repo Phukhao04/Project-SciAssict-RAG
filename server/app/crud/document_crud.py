@@ -7,6 +7,10 @@ CRUD สำหรับ document_category
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
+import json
+
+from app.utils.chunk_heading import extract_chunk_heading
+from app.utils.embedding import embed_document
 
 THAI_WEEKDAY_SHORT = [
     "จ",
@@ -141,6 +145,54 @@ def get_document_detail(db: Session, document_id: int) -> dict | None:
             for r in chunk_rows
         ],
     }
+
+
+def update_chunk_content(
+    db: Session, document_id: int, chunk_id: int, new_body: str
+) -> dict | None:
+    """
+    แก้ไขเฉพาะเนื้อหา (chunk_text) ของ chunk เดียว - heading คงเดิมเสมอ
+    (ดึงจาก parent_text เดิมใน DB มาประกอบใหม่ ไม่รับ heading จาก client
+    เพราะ DB คือแหล่งความจริงเดียว ไม่ใช่สิ่งที่ client ส่งมา) เนื้อหาเปลี่ยน
+    ต้อง re-embed parent_text ใหม่เสมอ ไม่งั้นการค้นหาจะอ้างอิงเนื้อหาเก่า
+    ที่ไม่ตรงกับที่แสดงจริงแล้ว (embedding ค้าง = คุณภาพ retrieval แย่ลง
+    แบบมองไม่เห็น)
+    """
+    row = db.execute(
+        text("""
+            SELECT chunk_text, parent_text
+            FROM document_chunk
+            WHERE chunk_id = :chunk_id AND document_id = :document_id
+        """),
+        {"chunk_id": chunk_id, "document_id": document_id},
+    ).first()
+
+    if row is None:
+        return None
+
+    heading = extract_chunk_heading(row.parent_text, row.chunk_text)
+    new_parent_text = f"{heading}\n{new_body}" if heading else new_body
+
+    embedding = embed_document(new_parent_text)
+
+    db.execute(
+        text("""
+            UPDATE document_chunk
+            SET chunk_text = :chunk_text,
+                parent_text = :parent_text,
+                embedding_vector = :embedding_vector
+            WHERE chunk_id = :chunk_id
+        """),
+        {
+            "chunk_text": new_body,
+            "parent_text": new_parent_text,
+            "embedding_vector": json.dumps(embedding),
+            "chunk_id": chunk_id,
+        },
+    )
+    db.commit()
+
+    return {"chunk_id": chunk_id, "chunk_text": new_body, "parent_text": new_parent_text}
 
 
 def _to_buddhist_date_str(d: date) -> str:

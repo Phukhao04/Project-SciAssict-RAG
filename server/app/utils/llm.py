@@ -1,4 +1,5 @@
-import os
+import logging
+
 from anthropic import Anthropic
 from sqlalchemy.orm import Session
 
@@ -6,21 +7,12 @@ from .retrieval import retrieve
 from app.prompts.rag_system_prompt import SYSTEM_PROMPT, PROMPT_VERSION
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 client = Anthropic(
     base_url="https://ai.psu.blue/anthropic",
     api_key=settings.dotblue_api_key,
 )
-
-def _format_heading_match_answer(chunks: list) -> str:
-    sections = []
-    for chunk in chunks:
-        lines = chunk.parent_text.strip().split("\n")
-        heading = lines[0].replace(" > ", " ")
-        body_lines = [f"- {line}" for line in lines[1:] if line.strip()]
-        intro = f"รายวิชาสำหรับ{heading} มีดังนี้ครับ:"
-        sections.append(intro + "\n" + "\n".join(body_lines))
-    return "\n\n".join(sections)
-
 
 def _build_context_block(index: int, chunk) -> str:
     """สร้าง <context> block เดียว จาก 1 chunk ที่ retrieve มาได้ ใช้ parent_text"""
@@ -63,15 +55,8 @@ def generate_answer(
     if not retrieved:
         return "ไม่พบข้อมูลนี้ในระบบ"
 
-    # --- ปิดชั่วคราวเพื่อทดสอบ psu-gemma แบบไม่มี template ช่วย ---
-    # if all(getattr(c, "match_type", "vector") == "heading" for c in retrieved):
-    #     return _format_heading_match_answer(retrieved)
-
     prompt = _build_prompt(question, retrieved)
-
-    print(f"\n================ PROMPT ({PROMPT_VERSION}) ================\n")
-    print(prompt)
-    print("\n========================================\n")
+    logger.debug("[llm] prompt (%s):\n%s", PROMPT_VERSION, prompt)
 
     try:
         response = client.messages.create(
@@ -82,6 +67,6 @@ def generate_answer(
         )
         return response.content[0].text.strip()
 
-    except Exception as exc:
-        print(f"[LLM ERROR] {exc}")
+    except Exception:
+        logger.exception("[llm] เรียก LLM ไม่สำเร็จ")
         return "ขออภัย ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง"

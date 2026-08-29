@@ -38,7 +38,3 @@ class RegisterResponse(BaseModel):
     user_id: int
     username: str
     email: str
-
-
-class SaltResponse(BaseModel):
-    salt: str
