@@ -1,15 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import AdminSidebar from "../../components/admin/AdminSidebar";
+import AdminLayout from "../../components/admin/AdminLayout";
 import AppConfig from "../../config/appConfig";
+import { authHeaders } from "../../utils/authHeaders";
 import "./Admin.css";
 
 const API_BASE_URL = AppConfig.apiBase;
-
-function authHeaders() {
-  const token = localStorage.getItem("access_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 function formatThaiDate(isoString) {
   const d = new Date(isoString);
@@ -48,6 +44,7 @@ function DocumentManagement() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadDocuments ตั้ง setState หลัง await เท่านั้น
     loadDocuments();
   }, [loadDocuments]);
 
@@ -85,12 +82,8 @@ function DocumentManagement() {
   );
 
   return (
-    <div className="admin-page">
-      <AdminSidebar />
-
-      <main className="admin-main">
-        <div className="admin-content">
-          <div className="page-header-row">
+    <AdminLayout>
+      <div className="page-header-row">
             <h1>จัดการเอกสาร</h1>
             <input
               type="text"
@@ -165,9 +158,7 @@ function DocumentManagement() {
               </tbody>
             </table>
           )}
-        </div>
-      </main>
-    </div>
+    </AdminLayout>
   );
 }
 

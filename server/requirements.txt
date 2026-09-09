@@ -1,0 +1,44 @@
+# SciAssist RAG — backend dependencies
+#
+# หมายเหตุ: venv ที่อยู่ในเครื่องตอนตรวจ ติดตั้งไม่ครบ (ขาด anthropic,
+# sentence-transformers, docling, PyJWT, python-multipart, email-validator ฯลฯ)
+# และเวอร์ชัน fastapi/starlette ในนั้นเสีย (include_router ไม่ทำงาน) จึงระบุเป็น
+# ช่วงเวอร์ชันที่เสถียรแทนการ pin ค่าจาก venv นั้น
+#
+# ให้ทีมรัน `pip install -r requirements.txt` ใน environment สะอาด แล้ว
+# `pip freeze > requirements.lock` เพื่อ pin เวอร์ชันจริงที่ยืนยันว่ารันได้
+
+# ---- Web framework ----
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9        # จำเป็นสำหรับ UploadFile/Form (rag.py, manual_ingest.py)
+
+# ---- Config / validation ----
+pydantic>=2.7,<3
+pydantic-settings>=2.3,<3
+email-validator>=2.1           # จำเป็นสำหรับ EmailStr (schemas/auth.py, schemas/user.py)
+python-dotenv>=1.0
+
+# ---- Database (TiDB / MySQL) ----
+SQLAlchemy>=2.0.30,<2.1
+PyMySQL>=1.1
+cryptography>=42.0            # PyMySQL ต้องใช้ตอนต่อ TiDB Cloud แบบ ssl_verify_cert=true
+
+# ---- Auth ----
+PyJWT>=2.8                    # import jwt ใน utils/security.py
+
+# ---- LLM ----
+anthropic>=0.39              # utils/llm.py (ชี้ base_url ไป ai.psu.blue)
+
+# ---- Embedding ----
+sentence-transformers>=3.0   # utils/embedding.py (ดึง torch + transformers มาด้วย)
+
+# ---- Document parsing ----
+pypdf>=4.2                    # utils/extraction.py
+python-docx>=1.1             # utils/ingest_manual.py, utils/docling_pipeline.py
+
+# ---- Docling (เส้นทาง auto-chunk .docx) ----
+# ถ้าเลิกใช้ POST /api/rag/documents/upload แล้ว ลบ 2 บรรทัดนี้ + ไฟล์
+# utils/docling_pipeline.py ได้ — เป็น dependency ที่หนักที่สุดของโปรเจกต์
+docling>=2.0
+docling-core>=2.0

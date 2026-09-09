@@ -49,6 +49,9 @@ class DocumentChunkItem(BaseModel):
     chunk_text: str
     parent_text: str
 
+class UpdateChunkRequest(BaseModel):
+    chunk_text: str = Field(..., min_length=1)
+
 class DocumentDetailResponse(BaseModel):
     document_id: int
     document_name: str

@@ -333,17 +333,17 @@
 
 .upload-btn {
   width: 100%;
-  background-color: #0B1150;
-  color: #FFD400;
+  background-color: #FFD400;
+  color: #0B1150;
   border: none;
   padding: 14px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.upload-btn:hover { background-color: #161E7A; }
+.upload-btn:hover { background-color: #E6BF00; }
 
 .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -579,19 +579,6 @@
   margin-bottom: 24px;
 }
 
-.switch-page-btn {
-  padding: 10px 18px;
-  border: none;
-  border-radius: 10px;
-  background: #0B1150;
-  color: #FFD400;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background-color 0.2s ease;
-}
-
-.switch-page-btn:hover { background: #161E7A; }
-
 .error-message {
   color: #C0392B !important;
 }
@@ -601,17 +588,21 @@
 .line-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: 60vh;
+  max-height: 65vh;
   overflow-y: auto;
+  padding: 8px 4px;
 }
 
+/* บรรทัดเนื้อหาธรรมดา - ให้รู้สึกเหมือนอ่านย่อหน้าจริง ไม่ใช่แถวตาราง
+   เว้นระยะแนวตั้งแคบๆ ระหว่างบรรทัดเนื้อหาที่ติดกัน (เหมือนบรรทัดในย่อหน้า
+   เดียวกัน) พื้นหลัง/เส้นขอบไม่มีจนกว่าจะเป็นหัวข้อหรือ hover */
 .line-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 3px 10px;
   border-radius: 6px;
+  border-left: 4px solid transparent;
 }
 
 .line-row:hover { background-color: #FDFBF2; }
@@ -623,61 +614,101 @@
 .line-text {
   flex: 1;
   color: #181A2A;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.7;
+  padding-top: 3px;
 }
 
 .line-row.is-table .line-text {
   font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
-.level-btn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid #E7E4D6;
-  background-color: #ffffff;
-  color: #a39d8c;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
+/* หัวข้อที่ mark แล้ว - เว้นระยะห่างจากเนื้อหาก่อนหน้าให้เป็น "ช่วงพัก"
+   เหมือนขึ้นหัวข้อ/section ใหม่จริงในเอกสาร ไม่ใช่แค่แถวถัดไปในตาราง */
+.line-list > .line-row:first-child { margin-top: 0 !important; }
+
+/* Visual hierarchy ของ H1/H2/H3 เน้น font-size/weight/indent เป็นหลัก
+   ไม่ใช้สีมากเกินไป (ข้อ 7) - เส้นซ้ายใช้โทนกลางๆ บางลงเรื่อยๆ ตาม level
+   แทนสี navy/blue เข้ม พื้นหลังเอาออกทั้งหมด ให้ตัวอักษรทำหน้าที่บอก
+   ลำดับชั้นเป็นหลัก */
+.line-row.is-heading-1 {
+  margin-top: 26px;
+  padding: 6px 10px 6px 8px;
+  border-left-color: #9a9384;
 }
 
-.level-btn:hover { border-color: #0B1150; }
+.line-row.is-heading-1 .line-text { font-size: 17px; font-weight: 700; color: #181A2A; padding-top: 0; }
 
-.level-btn.level-1 {
-  background-color: #0B1150;
-  color: #FFD400;
-  border-color: #0B1150;
+.line-row.is-heading-2 {
+  margin-top: 18px;
+  padding: 5px 10px 5px 8px;
+  border-left-color: #c2bcac;
 }
 
-.level-btn.level-2 {
-  background-color: #4a52a3;
-  color: #ffffff;
-  border-color: #4a52a3;
+.line-row.is-heading-2 .line-text { font-size: 15.5px; font-weight: 700; color: #232231; padding-top: 0; }
+
+.line-row.is-heading-3 {
+  margin-top: 12px;
+  padding: 4px 10px 4px 8px;
+  border-left-color: #dcd7c8;
 }
 
-.level-btn.level-3 {
-  background-color: #E7EAF7;
-  color: #0B1150;
-  border-color: #b9c0e6;
-}
-
-.mark-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.mark-actions .upload-btn { width: auto; padding: 12px 24px; }
+.line-row.is-heading-3 .line-text { font-size: 14.5px; font-weight: 600; color: #33323f; padding-top: 0; }
 
 .chunk-detail-static {
   padding: 16px;
   border-top: none;
+}
+
+/* ===== Preview step — แก้ไขเนื้อหา chunk ก่อนบันทึกจริง ===== */
+
+.chunk-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.chunk-index-label {
+  color: #a39d8c;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+/* heading โชว์อ่านอย่างเดียว (ไม่ใช่ input) - ห้ามแก้ตรงนี้เพราะจะทำให้
+   โครงสร้างที่ mark ไว้ตอน step ก่อนหน้าเพี้ยน ถ้าจะแก้หัวข้อต้องกลับไป
+   step "ทำเครื่องหมาย" แทน */
+.chunk-heading-label {
+  background-color: #F1EFE6;
+  color: #4b4a44;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 5px;
+}
+
+.chunk-edit-textarea {
+  width: 100%;
+  color: #181A2A;
+  font-size: 13px;
+  line-height: 1.7;
+  font-family: inherit;
+  border: 1px solid #E7E4D6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  resize: vertical;
+  background-color: #FDFBF2;
+}
+
+.chunk-edit-textarea:focus {
+  outline: none;
+  border-color: #0B1150;
+  background-color: #ffffff;
 }
 
 /* ===== Document Chunks — แสดง heading ให้เห็นชัด ===== */
@@ -741,20 +772,40 @@
 
 .full-doc-heading { margin-bottom: 8px; }
 
-/* ===== Mark Headings — layout ใหม่ (ค้นหา + คีย์บอร์ด + สารบัญสด) ===== */
-
-.mark-layout {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-}
+/* ===== Mark Headings — layout (ค้นหา + คีย์บอร์ด + H1/H2/H3 ต่อบรรทัด) ===== */
 
 .mark-main {
-  flex: 1;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.mark-search { width: 100%; margin-bottom: 8px; }
+.mark-search { width: 100%; margin-bottom: 0; }
+
+.search-input-wrap {
+  position: relative;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border: none;
+  background-color: #F1EFE6;
+  color: #6b6f8a;
+  border-radius: 50%;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-clear-btn:hover { background-color: #E7E4D6; color: #0B1150; }
 
 .filter-hint {
   color: #a39d8c;
@@ -762,20 +813,39 @@
   margin: 0 0 10px;
 }
 
-.mark-sidebar {
-  width: 260px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 20px;
-  max-height: 70vh;
-  overflow-y: auto;
-}
-
-.mark-sidebar-header {
+.mark-hint-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.mark-hint-row .mark-hint-line { flex: 1; min-width: 200px; }
+
+.mark-hint-row .clear-marks-btn { margin-left: auto; }
+
+/* progress badge เด่นขึ้น (ข้อ 4) - เปลี่ยนสีเมื่อเริ่มมีการ mark
+   (เทาว่างเปล่า -> navy/เหลืองเข้มขึ้นเมื่อมีความคืบหน้า) แทนตัวหนังสือ
+   เทาเล็กๆ เดิมที่ไม่มีใครสังเกตเห็น ไม่ใช้ตัวเลข "X/ทั้งหมด" เพราะงาน
+   นี้ไม่ได้มีเป้าหมายให้ mark ทุกบรรทัดเป็นหัวข้อ (ส่วนใหญ่ควรเป็นเนื้อหา
+   ธรรมดา) ตัวเลขเทียบกับทั้งหมดจะทำให้เข้าใจผิดว่าต้อง mark ให้ครบ 100% */
+.mark-progress-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background-color: #F1EFE6;
+  color: #a39d8c;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.mark-progress-badge.active {
+  background-color: #0B1150;
+  color: #FFD400;
 }
 
 .clear-marks-btn {
@@ -785,22 +855,10 @@
   font-size: 12px;
   cursor: pointer;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .clear-marks-btn:hover { text-decoration: underline; }
-
-.outline-empty {
-  color: #a39d8c;
-  font-size: 13px;
-  margin: 0;
-}
-
-.mark-sidebar .outline-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-}
 
 .line-row:focus {
   outline: 2px solid #0B1150;
@@ -808,7 +866,265 @@
   background-color: #FFF6C9;
 }
 
-@media (max-width: 900px) {
-  .mark-layout { flex-direction: column; }
-  .mark-sidebar { width: 100%; position: static; max-height: none; }
+.auto-detect-banner {
+  background-color: #E7EAF7;
+  color: #0B1150;
+  border: 1px solid #b9c0e6;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin: 0 0 14px;
 }
+
+/* ===== Step Indicator (หน้าอัปโหลดเอกสารรวม) ===== */
+
+.step-indicator {
+  display: flex;
+  align-items: center;
+  margin: 4px 0 24px;
+}
+
+.step-indicator-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-indicator-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: transparent;
+  border: 1.5px solid #d8d4c4;
+  color: #a39d8c;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.step-indicator-item.current .step-indicator-dot {
+  background-color: #0B1150;
+  border-color: #0B1150;
+  color: #FFD400;
+}
+
+.step-indicator-item.done .step-indicator-dot {
+  background-color: #4a52a3;
+  border-color: #4a52a3;
+  color: #ffffff;
+}
+
+.step-indicator-label {
+  font-size: 13px;
+  color: #a39d8c;
+  white-space: nowrap;
+}
+
+.step-indicator-item.current .step-indicator-label {
+  color: #0B1150;
+  font-weight: 600;
+}
+
+.step-indicator-item.done .step-indicator-label {
+  color: #4b4a44;
+}
+
+.step-indicator-line {
+  width: 32px;
+  height: 1px;
+  background-color: #E7E4D6;
+  margin: 0 10px;
+}
+
+@media (max-width: 700px) {
+  .step-indicator-label { display: none; }
+  .step-indicator-line { width: 16px; margin: 0 6px; }
+}
+
+/* ===== Mark step v4 — H1/H2/H3 selector เล็กๆ ต่อบรรทัด (เรียบง่ายสุด) =====
+   กลับมาเรียบง่ายที่สุด: ต่อบรรทัดมีแค่ปุ่มเล็ก 3 ปุ่ม [H1][H2][H3]
+   ไม่มี control bar แยก ไม่มีปุ่มยกเลิก/เลื่อนบรรทัดแยก - คลิกปุ่มที่
+   กำลัง active อยู่ซ้ำอีกครั้ง = ยกเลิก (toggle off) ในตัวเอง
+
+   ปุ่มซ่อนไว้ (visibility: hidden) จนกว่าจะ hover/focus บรรทัดนั้น
+   หรือบรรทัดนั้นถูก mark เป็นหัวข้ออยู่แล้ว - ใช้ visibility แทน display
+   เพื่อกันไม่ให้ข้อความขยับตำแหน่งตอนปุ่มโผล่/หาย */
+.h-picker {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  visibility: hidden;
+}
+
+.line-row:hover .h-picker,
+.line-row:focus .h-picker,
+.line-row:focus-within .h-picker,
+.line-row.is-heading-1 .h-picker,
+.line-row.is-heading-2 .h-picker,
+.line-row.is-heading-3 .h-picker {
+  visibility: visible;
+}
+
+.h-picker-btn {
+  width: 26px;
+  height: 22px;
+  border: 1px solid #E7E4D6;
+  border-radius: 5px;
+  background-color: #ffffff;
+  color: #a39d8c;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+}
+
+.h-picker-btn:hover { border-color: #0B1150; color: #0B1150; }
+
+.h-picker-btn.active.level-1 { background-color: #0B1150; color: #FFD400; border-color: #0B1150; }
+.h-picker-btn.active.level-2 { background-color: #4a52a3; color: #ffffff; border-color: #4a52a3; }
+.h-picker-btn.active.level-3 { background-color: #E7EAF7; color: #0B1150; border-color: #b9c0e6; }
+
+.mark-hint-line {
+  color: #a39d8c;
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+
+/* ===== Search highlight + empty state (ข้อ 9) ===== */
+
+.search-highlight {
+  background-color: #FFD400;
+  color: #0B1150;
+  padding: 0 1px;
+  border-radius: 2px;
+  font-weight: 700;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.empty-state-title {
+  color: #6b6f8a;
+  font-size: 14px;
+  margin: 0;
+}
+
+.empty-state-clear-btn {
+  background-color: #ffffff;
+  border: 1px solid #E7E4D6;
+  color: #0B1150;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.empty-state-clear-btn:hover { background-color: #FFF6C9; }
+
+/* ===== Loading spinner (ข้อ 13) ===== */
+
+.btn-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(11, 17, 80, 0.25);
+  border-top-color: #0B1150;
+  border-radius: 50%;
+  animation: btn-spin 0.6s linear infinite;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+
+.switch-page-btn .btn-spinner {
+  border-color: rgba(11, 17, 80, 0.25);
+  border-top-color: #0B1150;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Sticky bottom action bar (ข้อ 11) ===== */
+
+.mark-actions {
+  position: sticky;
+  bottom: 0;
+  background-color: #FDFBF2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 14px 0 4px;
+  border-top: 1px solid #E7E4D6;
+  z-index: 5;
+}
+
+.mark-actions .upload-btn { width: auto; padding: 12px 24px; }
+
+/* Primary action เด่นกว่า secondary (ข้อ 11) - upload-btn (primary) คงสี
+   navy เต็มตามเดิมอยู่แล้ว ส่วน switch-page-btn (secondary) ทำให้เบาลง
+   ชัดเจนกว่าเดิม ไม่แข่งความเด่นกับปุ่มหลัก */
+.switch-page-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  background-color: transparent;
+  color: #4b4a44;
+  border: 1px solid #E7E4D6;
+}
+
+.switch-page-btn:hover { background-color: #ffffff; color: #0B1150; border-color: #0B1150; }
+
+/* ===== DocumentChunks — ดูเนื้อหา + แก้ไข chunk ===== */
+
+.doc-search-wrap { margin: 16px 0 4px; }
+
+.chunk-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 0;
+}
+
+.chunk-edit-btn {
+  background: none;
+  border: 1px solid #E7E4D6;
+  color: #0B1150;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.chunk-edit-btn:hover { background-color: #FFF6C9; border-color: #0B1150; }
+
+.chunk-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* .upload-btn ปกติกว้างเต็ม container (ใช้กับปุ่มหลักเต็มความกว้างของฟอร์ม
+   ตอนอัปโหลด) แต่ในนี้ต้องการแค่ปุ่มเล็กพอดีเนื้อหา ไม่ยืดเต็มการ์ด */
+.chunk-save-btn { width: auto; padding: 8px 20px; font-size: 13px; }

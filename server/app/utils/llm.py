@@ -1,20 +1,18 @@
-import ollama
+import logging
+
+from anthropic import Anthropic
 from sqlalchemy.orm import Session
 
 from .retrieval import retrieve
 from app.prompts.rag_system_prompt import SYSTEM_PROMPT, PROMPT_VERSION
+from app.config import settings
 
+logger = logging.getLogger(__name__)
 
-def _format_heading_match_answer(chunks: list) -> str:
-    sections = []
-    for chunk in chunks:
-        lines = chunk.parent_text.strip().split("\n")
-        heading = lines[0].replace(" > ", " ")
-        body_lines = [f"- {line}" for line in lines[1:] if line.strip()]
-        intro = f"รายวิชาสำหรับ{heading} มีดังนี้ครับ:"
-        sections.append(intro + "\n" + "\n".join(body_lines))
-    return "\n\n".join(sections)
-
+client = Anthropic(
+    base_url="https://ai.psu.blue/anthropic",
+    api_key=settings.dotblue_api_key,
+)
 
 def _build_context_block(index: int, chunk) -> str:
     """สร้าง <context> block เดียว จาก 1 chunk ที่ retrieve มาได้ ใช้ parent_text"""
@@ -47,7 +45,7 @@ If the answer is not there, respond exactly: "ไม่พบข้อมูล�
 def generate_answer(
     db: Session,
     question: str,
-    model: str = "llama3.2",
+    model: str = "PSU-LLM/psu-gemma",
     k: int = 3,
     retrieved=None,
 ) -> str:
@@ -57,34 +55,18 @@ def generate_answer(
     if not retrieved:
         return "ไม่พบข้อมูลนี้ในระบบ"
 
-    # ถ้า chunk ทั้งหมดมาจาก heading-match (คำถามระบุปี/เทอมชัดเจน)
-    # ข้อมูลถูกต้อง 100% อยู่แล้ว - format ตรงๆ ไม่ต้องเสี่ยงให้ LLM
-    # เรียบเรียงแล้วตัดรายละเอียดทิ้ง (ดู _format_heading_match_answer)
-    if all(getattr(c, "match_type", "vector") == "heading" for c in retrieved):
-        return _format_heading_match_answer(retrieved)
-
     prompt = _build_prompt(question, retrieved)
-
-    print(f"\n================ PROMPT ({PROMPT_VERSION}) ================\n")
-    print(prompt)
-    print("\n========================================\n")
+    logger.debug("[llm] prompt (%s):\n%s", PROMPT_VERSION, prompt)
 
     try:
-        response = ollama.chat(
+        response = client.messages.create(
             model=model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            options={
-                "temperature": 0,
-                "top_p": 0.9,
-                "num_predict": 1024,
-                "num_ctx": 4096,
-            },
+            system=SYSTEM_PROMPT,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
         )
-        return response["message"]["content"].strip()
+        return response.content[0].text.strip()
 
-    except Exception as exc:
-        print(f"[LLM ERROR] {exc}")
+    except Exception:
+        logger.exception("[llm] เรียก LLM ไม่สำเร็จ")
         return "ขออภัย ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง"

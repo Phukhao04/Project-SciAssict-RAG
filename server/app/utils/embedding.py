@@ -56,20 +56,3 @@ def embed_document(text: str) -> list[float]:
     )
 
     return embedding.tolist()
-
-
-def embed_batch(texts: list[str]) -> list[list[float]]:
-    """
-    ใช้ตอนสร้าง Vector Database
-
-    เร็วกว่าการเรียกทีละข้อความ
-    """
-
-    embedder = get_embedder()
-
-    embeddings = embedder.encode(
-        texts,
-        normalize_embeddings=True,
-    )
-
-    return embeddings.tolist()

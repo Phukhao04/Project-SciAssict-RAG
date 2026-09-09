@@ -20,11 +20,18 @@ rag.py ที่ดูแล document endpoints อื่นๆ อยู่แ�
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.rag import IngestResponse
+from app.schemas.manual_ingest import (
+    BuildChunksRequest,
+    BuildChunksResponse,
+    ChunkPreview,
+    ConfirmManualIngestRequest,
+    ParseRawResponse,
+    RawLineOut,
+)
 from app.utils.ingest_manual import (
     HeadingMark,
     RawLine,
@@ -42,45 +49,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/rag/documents", tags=["manual-ingest"])
 
-
-# ---------- Schemas ----------
-
-class RawLineOut(BaseModel):
-    index: int
-    kind: str
-    text: str
-
-
-class ParseRawResponse(BaseModel):
-    lines: list[RawLineOut]
-
-
-class HeadingMarkIn(BaseModel):
-    line_index: int
-    level: int
-
-
-class BuildChunksRequest(BaseModel):
-    lines: list[RawLineOut]
-    marks: list[HeadingMarkIn]
-
-
-class ChunkPreview(BaseModel):
-    chunk_text: str
-    parent_text: str
-
-
-class BuildChunksResponse(BaseModel):
-    chunks: list[ChunkPreview]
-
-
-class ConfirmManualIngestRequest(BaseModel):
-    chunks: list[ChunkPreview]
-    document_name: str
-    document_type: str
-    category_id: int
-    user_id: int
-    description: str | None = None
+# เท่ากับ MAX_FILE_SIZE_MB ใน rag.py (/documents/upload) - endpoint นี้เดิม
+# ไม่มีการเช็คขนาดไฟล์เลย ทำให้เสียการป้องกันไปเงียบๆ ถ้า frontend เปลี่ยน
+# มาเรียก endpoint นี้แทน (เช่นตอนรวมหน้าอัปโหลด+mark heading เป็นหน้าเดียว)
+MAX_FILE_SIZE_MB = 20
 
 
 # ---------- Endpoints ----------
@@ -110,6 +82,12 @@ async def parse_raw(
 
     file_bytes = await file.read()
 
+    size_mb = len(file_bytes) / (1024 * 1024)
+    if size_mb > MAX_FILE_SIZE_MB:
+        raise HTTPException(
+            status_code=413, detail=f"ไฟล์ใหญ่เกิน {MAX_FILE_SIZE_MB}MB"
+        )
+
     try:
         raw_lines = parser(file_bytes)
     except Exception as exc:
@@ -127,7 +105,12 @@ async def parse_raw(
 
     return ParseRawResponse(
         lines=[
-            RawLineOut(index=ln.index, kind=ln.kind, text=ln.text)
+            RawLineOut(
+                index=ln.index,
+                kind=ln.kind,
+                text=ln.text,
+                suggested_level=ln.suggested_level,
+            )
             for ln in raw_lines
         ]
     )
