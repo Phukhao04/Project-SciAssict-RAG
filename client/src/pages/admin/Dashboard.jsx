@@ -57,6 +57,7 @@ function Dashboard() {
     loadDashboard();
   }, [loadDashboard]);
 
+  // --- Bar chat รายสัปดาห์ ---
   const totalWeeks = Math.ceil(queryActivity.length / 7);
   const startPos = (totalWeeks - 1 - weekIndex) * 7;
   const currentWeekData = queryActivity.slice(startPos, startPos + 7);

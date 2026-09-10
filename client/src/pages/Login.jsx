@@ -91,7 +91,7 @@ function Login() {
       setIsLoading(false)
     }
   }
-
+  // --- ตรวจฟอร์มก่อนยิง API ---
   const validateRegisterClientSide = () => {
     const errors = {}
 

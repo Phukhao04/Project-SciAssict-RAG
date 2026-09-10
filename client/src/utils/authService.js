@@ -31,7 +31,7 @@ export async function authenRequest(username) {
   };
 }
 
-// --- ขั้นตอน access_request ---
+// --- ขั้นตอน access_request พิสูจน์ตว่ารู้รหัสจริง ---
 export async function accessRequest(username, password, authenToken) {
   const passwordEncode = CryptoJS.SHA256(password).toString();
 
@@ -71,7 +71,7 @@ export async function accessRequest(username, password, authenToken) {
 // *********** //
 //register
 
-// --- ขั้นตอน register ---
+// --- ขั้นตอน register สมัครสมาชิก ---
 
 export async function registerRequest({
   username,

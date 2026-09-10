@@ -1,5 +1,5 @@
 import AppConfig from "../config/appConfig";
-
+// function คุยกับ Backend ทั้งหมดที่เดี่ยวกับ RAG (Retrieval-Augmented Generation) เช่น การถาม-ตอบ, การดึง session, การดึงข้อความใน session
 // ทำไมแยกไฟล์จาก authService.js: เป็นคนละโดเมนงานกัน (RAG vs Authentication)
 // เก็บรวมกันจะทำให้ไฟล์เดียวทำหน้าที่ปนกันมากเกินไป
 
