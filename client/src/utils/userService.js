@@ -1,10 +1,5 @@
 import AppConfig from '../config/appConfig'
-
-// header แนบ JWT token (pattern เดียวกับที่ UserManagement.jsx ใช้ แต่แยกออกมาให้หน้าอื่นเรียกซ้ำได้)
-function authHeaders() {
-  const token = localStorage.getItem('access_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
+import { authHeaders } from './authHeaders'
 
 // ดึงโปรไฟล์ของผู้ใช้ที่ login อยู่ (backend อ่าน user_id จาก JWT เอง ไม่ต้องส่งมา)
 export async function getMyProfile() {

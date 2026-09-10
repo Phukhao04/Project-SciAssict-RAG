@@ -20,7 +20,7 @@ from app.schemas.rag import (
     QueryActivityItem,
 )
 from app.utils.ingestion import UnsupportedFileTypeError
-from app.utils.ingestion import ingest_document
+from app.utils.ingestion import ingest_document, ingest_text
 from app.utils.llm import generate_answer
 from app.utils.retrieval import retrieve
 from app.crud.chat_crud import create_session, save_message
@@ -102,17 +102,13 @@ def get_document(document_id: int, db: Session = Depends(get_db)):
 def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
     """
     รับ text ดิบๆ ตรงๆ (ไม่ใช่ไฟล์) -> ไม่มี heading style ให้อ่าน
-    เลยแปลงเป็น list[(None, บรรทัด)] ทุกบรรทัด แล้วส่งเข้า ingest_document
-    ตัวเดียวกับ endpoint upload เพื่อให้ทั้งระบบ chunk ด้วยตรรกะเดียวกันเสมอ
+    เรียก ingest_text() ซึ่งแยกออกมาเฉพาะสำหรับเส้นทางนี้ (ingest_document
+    รับแค่ filename+file_bytes แล้วหลัง migrate Docling ไม่มี paragraphs อีก)
     """
-    paragraphs = [
-        (None, line) for line in payload.text.split("\n") if line.strip()
-    ]
-
     try:
-        result = ingest_document(
+        result = ingest_text(
             db,
-            paragraphs=paragraphs,
+            raw_text=payload.text,
             document_name=payload.document_name,
             document_type=payload.document_type,
             category_id=payload.category_id,

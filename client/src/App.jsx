@@ -9,7 +9,6 @@ import UserManagement from './pages/admin/UserManagement'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import RootRedirect from './pages/RootRedirect'
 import Profile from './pages/Profile'
-import './App.css'
 
 function App() {
   return (

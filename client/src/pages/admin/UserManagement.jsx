@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { Search } from "lucide-react";
+import AdminLayout from "../../components/admin/AdminLayout";
+import AppConfig from "../../config/appConfig";
+import { authHeaders } from "../../utils/authHeaders";
 import "./UserManagement.css";
-import AdminSidebar from '../../components/admin/AdminSidebar'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE = AppConfig.apiBase;
 
-// แก้จากเดิมที่อ่าน key "user_id" ตรงๆ (ไม่เคยมีการ set key นี้จริง)
-// AuthContext.jsx เก็บ user ทั้งก้อนเป็น JSON ไว้ที่ key "user" เท่านั้น
-// ของเดิมจะได้ null เสมอ ทำให้ isSelf เป็น false ตลอด (admin ลบ/เปลี่ยน role ตัวเองได้โดยไม่ถูกกัน)
 function getCurrentUserId() {
   const raw = localStorage.getItem("user");
   if (!raw) return null;
@@ -18,20 +18,10 @@ function getCurrentUserId() {
   }
 }
 
-function authHeaders() {
-  const token = localStorage.getItem("access_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-// map role_id จริง (R01, R02, ...) ไปเป็น class สี badge
-// แยกออกมาจาก role_id ตรงๆ เพราะ role_id ในอนาคตอาจเพิ่ม R03, R04
-// โดยไม่ต้องมาคอยเดา CSS class ชื่อใหม่ทุกครั้ง ถ้า role ไหนไม่รู้จัก fallback เป็นสีเทากลาง
 const ROLE_BADGE_CLASS = {
   R01: "um-role-admin",
   R02: "um-role-student",
 };
-
-// ดึง current user จาก token/localStorage ที่เก็บไว้ตอน login (authService.js เดิม)
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -40,6 +30,7 @@ export default function UserManagement() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [dropUp, setDropUp] = useState(false); // true = เปิดเมนูขึ้นด้านบน (กันโดนขอบล่างของพื้นที่สกรอลตัดขอบ)
   const [updatingUserId, setUpdatingUserId] = useState(null); // กันกดซ้ำระหว่างรอผล
 
   const menuRef = useRef(null);
@@ -102,6 +93,18 @@ export default function UserManagement() {
         .includes(q)
     );
   }, [users, search]);
+
+  function toggleMenu(e, userId) {
+    if (openMenuId === userId) {
+      setOpenMenuId(null);
+      return;
+    }
+    // ถ้าพื้นที่ด้านล่างปุ่มไม่พอสำหรับเมนู ให้เปิดขึ้นด้านบนแทน
+    const rect = e.currentTarget.getBoundingClientRect();
+    const estimatedDropdownHeight = 220;
+    setDropUp(window.innerHeight - rect.bottom < estimatedDropdownHeight);
+    setOpenMenuId(userId);
+  }
 
   async function handleRoleChange(userId, newRoleId, displayName) {
     setOpenMenuId(null);
@@ -174,12 +177,8 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="admin-page">
-      <AdminSidebar />
-
-      <main className="admin-main">
-        <div className="admin-content">
-          <div className="um-page">
+    <AdminLayout>
+      <div className="um-page">
             <div className="um-header">
               <div>
                 <h1 className="um-title">จัดการผู้ใช้งาน</h1>
@@ -189,10 +188,7 @@ export default function UserManagement() {
 
             <div className="um-toolbar">
               <div className="um-search">
-                <svg className="um-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
+                <Search className="um-search-icon" size={16} />
                 <input
                   type="text"
                   aria-label="ค้นหาผู้ใช้"
@@ -249,14 +245,12 @@ export default function UserManagement() {
                                 aria-haspopup="true"
                                 aria-expanded={openMenuId === u.user_id}
                                 disabled={isUpdating}
-                                onClick={() =>
-                                  setOpenMenuId(openMenuId === u.user_id ? null : u.user_id)
-                                }
+                                onClick={(e) => toggleMenu(e, u.user_id)}
                               >
                                 {isUpdating ? "กำลังบันทึก..." : "แก้ไข ▾"}
                               </button>
                               {openMenuId === u.user_id && (
-                                <div className="um-dropdown">
+                                <div className={`um-dropdown${dropUp ? " um-dropdown-up" : ""}`}>
                                   {isSelf ? (
                                     <div className="um-dropdown-label">
                                       ไม่สามารถแก้ไขบัญชีตัวเองได้จากหน้านี้
@@ -301,9 +295,7 @@ export default function UserManagement() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

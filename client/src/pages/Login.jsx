@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Atom, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import {
   authenRequest,
@@ -10,16 +11,6 @@ import './Login.css'
 
 // role_id คงที่สำหรับ user ที่สมัครเอง
 const DEFAULT_ROLE_ID = 'R02'
-
-/* โลโก้อะตอมเดียวกับหน้าแชท/admin ให้ทั้งระบบดูเป็นชุดเดียวกัน */
-const AtomIcon = ({ size = 26 }) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="#0B1150" strokeWidth="1.6">
-    <ellipse cx="12" cy="12" rx="10" ry="4.2" />
-    <ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(60 12 12)" />
-    <ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(120 12 12)" />
-    <circle cx="12" cy="12" r="1.8" fill="#0B1150" stroke="none" />
-  </svg>
-)
 
 function Login() {
   const navigate = useNavigate()
@@ -172,7 +163,7 @@ function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo"><AtomIcon size={24} /></div>
+        <div className="login-logo"><Atom size={24} color="#0B1150" /></div>
         <h1 className="login-title">Sci Assistant</h1>
         <p className="login-subtitle">คณะวิทยาศาสตร์ ม.อ. หาดใหญ่</p>
 
@@ -231,7 +222,7 @@ function Login() {
                   setShowPassword((v) => !v)
                 }
               >
-                {showPassword ? '🙈' : '👁️'}
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
 
@@ -340,7 +331,7 @@ function Login() {
                   setShowPassword((v) => !v)
                 }
               >
-                {showPassword ? '🙈' : '👁️'}
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
 

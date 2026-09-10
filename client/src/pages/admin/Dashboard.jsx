@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import AdminSidebar from "../../components/admin/AdminSidebar";
-
+import AdminLayout from "../../components/admin/AdminLayout";
+import AppConfig from "../../config/appConfig";
 import "./Admin.css";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = AppConfig.apiBase;
 
 function Dashboard() {
   const [weekIndex, setWeekIndex] = useState(0);
@@ -82,24 +82,15 @@ function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="admin-page">
-        <AdminSidebar />
-        <main className="admin-main">
-          <div className="admin-content">
-            <p>กำลังโหลดข้อมูล...</p>
-          </div>
-        </main>
-      </div>
+      <AdminLayout>
+        <p>กำลังโหลดข้อมูล...</p>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="admin-page">
-      <AdminSidebar />
-
-      <main className="admin-main">
-        <div className="admin-content">
-          <h1>ภาพรวมระบบ</h1>
+    <AdminLayout>
+      <h1>ภาพรวมระบบ</h1>
           {loadError && (
             <p className="error-message" style={{ color: "red" }}>
               {loadError}
@@ -196,9 +187,7 @@ function Dashboard() {
               </tbody>
             </table>
           </div>
-        </div>
-      </main>
-    </div>
+    </AdminLayout>
   );
 }
 

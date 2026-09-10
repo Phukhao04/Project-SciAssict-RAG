@@ -7,6 +7,10 @@ CRUD สำหรับ document_category
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
+import json
+
+from app.utils.chunk_heading import extract_chunk_heading
+from app.utils.embedding import embed_document
 
 THAI_WEEKDAY_SHORT = [
     "จ",
@@ -113,8 +117,13 @@ def get_document_detail(db: Session, document_id: int) -> dict | None:
 
     # ORDER BY chunk_id ใช้แทนลำดับต้นฉบับ เพราะ document_chunk ไม่มี
     # คอลัมน์ลำดับเก็บไว้จริงๆ - ใช้ได้เพราะ ingestion insert เรียงตามลำดับ chunk เดิม
+    #
+    # ดึง parent_text เพิ่ม (เดิมดึงแค่ chunk_text) เพราะ heading ของแต่ละ
+    # chunk อยู่ใน parent_text เท่านั้น (รูปแบบ "heading1 > heading2\nbody")
+    # ถ้าไม่ส่ง parent_text มาด้วย frontend จะไม่มีทางรู้เลยว่า chunk นี้
+    # อยู่ใต้หัวข้ออะไร - เป็นสาเหตุที่หน้าดู chunk ดูมั่ว ไม่รู้ว่าอะไรคืออะไร
     chunks_sql = text("""
-        SELECT chunk_id, chunk_text
+        SELECT chunk_id, chunk_text, parent_text
         FROM document_chunk
         WHERE document_id = :document_id
         ORDER BY chunk_id ASC
@@ -128,9 +137,62 @@ def get_document_detail(db: Session, document_id: int) -> dict | None:
         "category_name": doc_row.category_name,
         "upload_date": doc_row.upload_date,
         "chunks": [
-            {"chunk_id": r.chunk_id, "chunk_text": r.chunk_text} for r in chunk_rows
+            {
+                "chunk_id": r.chunk_id,
+                "chunk_text": r.chunk_text,
+                "parent_text": r.parent_text,
+            }
+            for r in chunk_rows
         ],
     }
+
+
+def update_chunk_content(
+    db: Session, document_id: int, chunk_id: int, new_body: str
+) -> dict | None:
+    """
+    แก้ไขเฉพาะเนื้อหา (chunk_text) ของ chunk เดียว - heading คงเดิมเสมอ
+    (ดึงจาก parent_text เดิมใน DB มาประกอบใหม่ ไม่รับ heading จาก client
+    เพราะ DB คือแหล่งความจริงเดียว ไม่ใช่สิ่งที่ client ส่งมา) เนื้อหาเปลี่ยน
+    ต้อง re-embed parent_text ใหม่เสมอ ไม่งั้นการค้นหาจะอ้างอิงเนื้อหาเก่า
+    ที่ไม่ตรงกับที่แสดงจริงแล้ว (embedding ค้าง = คุณภาพ retrieval แย่ลง
+    แบบมองไม่เห็น)
+    """
+    row = db.execute(
+        text("""
+            SELECT chunk_text, parent_text
+            FROM document_chunk
+            WHERE chunk_id = :chunk_id AND document_id = :document_id
+        """),
+        {"chunk_id": chunk_id, "document_id": document_id},
+    ).first()
+
+    if row is None:
+        return None
+
+    heading = extract_chunk_heading(row.parent_text, row.chunk_text)
+    new_parent_text = f"{heading}\n{new_body}" if heading else new_body
+
+    embedding = embed_document(new_parent_text)
+
+    db.execute(
+        text("""
+            UPDATE document_chunk
+            SET chunk_text = :chunk_text,
+                parent_text = :parent_text,
+                embedding_vector = :embedding_vector
+            WHERE chunk_id = :chunk_id
+        """),
+        {
+            "chunk_text": new_body,
+            "parent_text": new_parent_text,
+            "embedding_vector": json.dumps(embedding),
+            "chunk_id": chunk_id,
+        },
+    )
+    db.commit()
+
+    return {"chunk_id": chunk_id, "chunk_text": new_body, "parent_text": new_parent_text}
 
 
 def _to_buddhist_date_str(d: date) -> str:
