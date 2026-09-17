@@ -210,8 +210,6 @@ function UploadDocument() {
     return indents;
   }, [lines, levels]);
 
-  // เลื่อนโฟกัสด้วยลูกศรขึ้น/ลง โดยอิงตำแหน่งใน visibleLines (ไม่ใช่ lines
-  // ทั้งหมด) เพื่อให้เลื่อนเฉพาะในผลที่กรองไว้เมื่อมีการค้นหาอยู่
   const moveFocus = (currentLineIndex, direction) => {
     const pos = visibleLines.findIndex((l) => l.index === currentLineIndex);
     if (pos === -1) return;
@@ -240,8 +238,6 @@ function UploadDocument() {
   };
   const markedCount = Object.keys(levels).length;
 
-  // สารบัญสด: อัปเดตตามที่ mark ไปแล้วแบบ real-time ไม่ต้องกด "สร้าง Chunk"
-  // ก่อนถึงจะเห็นว่าโครงสร้างที่ทำไปถูกไหม
   const handleBuildChunks = async () => {
     if (isBuilding) return; // กันกดซ้ำระหว่างประมวลผล
     if (markedCount === 0) {
