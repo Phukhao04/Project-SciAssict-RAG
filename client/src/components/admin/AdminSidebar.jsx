@@ -25,6 +25,7 @@ function AdminSidebar() {
   const { user, setUser } = useAuth()
 
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
 
   const isActive = (path) => location.pathname === path
 
@@ -36,7 +37,15 @@ function AdminSidebar() {
   const avatarLetter = user?.username ? user.username[0].toUpperCase() : 'A'
 
   return (
-    <aside className="admin-sidebar">
+    <aside className={isMobileOpen ? "admin-sidebar is-mobile-open" : "admin-sidebar"}>
+      <button
+        type="button"
+        className="admin-mobile-toggle"
+        aria-label="เปิดหรือปิดเมนูผู้ดูแลระบบ"
+        aria-expanded={isMobileOpen}
+        onClick={() => setIsMobileOpen((v) => !v)}
+      >☰</button>
+
       <div className="admin-sidebar-top">
         <div className="admin-brand-row">
           <div className="admin-brand-logo"><AtomIcon size={18} /></div>
@@ -57,7 +66,7 @@ function AdminSidebar() {
             </Link>
           </li>
           <li>
-            <Link to="/chat" className="admin-menu-item admin-menu-item-back">
+            <Link to="/chat" onClick={() => setIsMobileOpen(false)} className="admin-menu-item admin-menu-item-back">
               ← ไปหน้าแชท
             </Link>
           </li>
