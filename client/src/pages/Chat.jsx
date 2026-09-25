@@ -62,7 +62,7 @@ function Chat() {
     }
     el.addEventListener('scroll', handleScroll, { passive: true })
     return () => el.removeEventListener('scroll', handleScroll)
-  }, [hasMessages])
+  }, [chatHistory.length])
 
   const copyAnswer = async (text, index) => {
     try {
