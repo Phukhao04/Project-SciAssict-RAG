@@ -18,3 +18,39 @@
 .document-state strong,.document-empty-state h2{font-size:17px}
 .document-state p,.document-empty-state p{font-size:14px}
 @media(max-width:760px){.document-page-header{align-items:stretch;flex-direction:column}.document-page-header h1{font-size:26px}}
+
+
+
+/* Large readable scale */
+.document-management-page { max-width: 1320px; }
+.document-page-header { margin-bottom: 26px; }
+.document-page-header h1 { font-size: 36px; }
+.document-page-eyebrow { font-size: 14px; }
+.document-page-description { font-size: 17px; }
+
+.document-add-btn { min-height: 50px; padding: 12px 22px; font-size: 16px; border-radius: 10px; }
+
+.document-overview { gap: 16px; margin-bottom: 18px; }
+.document-overview-item { min-height: 92px; padding: 20px 22px; border-radius: 14px; }
+.document-overview-item span { font-size: 16px; }
+.document-overview-item strong { font-size: 30px; }
+
+.document-toolbar { padding: 16px; border-radius: 12px; }
+.document-search input,
+.document-filter select { min-height: 50px; font-size: 16px; padding: 12px 16px; }
+
+.document-table th { padding: 17px 18px; font-size: 15px; }
+.document-table td { padding: 19px 18px; font-size: 16px; }
+.document-name-content strong { font-size: 16px; }
+.document-name-content span { font-size: 13px; }
+.document-type-badge,
+.document-category-badge,
+.document-chunk-count { font-size: 14px; }
+.document-date { font-size: 15px; }
+.document-view-btn,
+.document-delete-btn { min-height: 42px; padding: 8px 14px; font-size: 14px; }
+
+@media (max-width: 760px) {
+  .document-page-header h1 { font-size: 30px; }
+  .document-page-description { font-size: 16px; }
+}
