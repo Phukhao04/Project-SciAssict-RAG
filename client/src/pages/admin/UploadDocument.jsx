@@ -8,13 +8,14 @@ import { useAuth } from "../../hooks/useAuth";
 import AppConfig from "../../config/appConfig";
 import { extractChunkHeading } from "../../utils/chunkHeading";
 import "./Admin.css";
+import "./UploadDocument.css";
 
 const API_BASE_URL = AppConfig.apiBase;
 
 const STEPS = [
   { key: "meta", label: "ข้อมูลเอกสาร" },
-  { key: "mark", label: "ทำเครื่องหมายหัวข้อ" },
-  { key: "preview", label: "ตรวจสอบ Chunk" },
+  { key: "mark", label: "จัดโครงสร้าง" },
+  { key: "preview", label: "ตรวจสอบ" },
   { key: "done", label: "เสร็จสิ้น" },
 ];
 
@@ -32,6 +33,39 @@ function UploadDocument() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [categories, setCategories] = useState([]);
   const [categoriesError, setCategoriesError] = useState("");
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryCreateError, setCategoryCreateError] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+
+  const handleCreateCategory = async (e) => {
+    e.preventDefault();
+    const name = newCategoryName.trim();
+    if (!name || isCreatingCategory) return;
+
+    setCategoryCreateError("");
+    setIsCreatingCategory(true);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/rag/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category_name: name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "เพิ่มหมวดหมู่ไม่สำเร็จ");
+
+      setCategories((prev) => [...prev, data]);
+      setCategoryId(String(data.category_id));
+      setNewCategoryName("");
+      setShowCategoryModal(false);
+    } catch (err) {
+      console.error(err);
+      setCategoryCreateError(err.message);
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  };
 
   // ---- ขั้น mark: ผลจาก /parse-raw + heading level ที่แอดมินเลือก ----
   const [lines, setLines] = useState([]);
@@ -350,103 +384,251 @@ function UploadDocument() {
       <StepIndicator steps={STEPS} currentStep={step} />
 
           {step === "meta" && (
-            <form className="upload-form" onSubmit={handleParse}>
-              <label
-                className={isDragOver ? "dropzone dropzone-active" : "dropzone"}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragOver(true);
-                }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={handleDrop}
-              >
-                <input
-                  type="file"
-                  accept=".docx,.pdf"
-                  hidden
-                  disabled={isParsing}
-                  onChange={(e) => setFile(e.target.files[0])}
-                />
-                <div className="dropzone-icon">📄</div>
-                <p className="dropzone-text">
-                  {file ? file.name : "ลากไฟล์ .docx หรือ .pdf มาวาง หรือคลิกเพื่อเลือกไฟล์"}
+            <>
+              <div className="upload-page">
+                <p className="upload-page-intro">
+                  เพิ่มเอกสารเข้าสู่ฐานความรู้ของ Sci Assistant
                 </p>
-                <p className="dropzone-hint">
-                  รองรับ .docx และ .pdf ขนาดไม่เกิน 20MB — ไม่ต้องใส่ Word heading
-                  style มาก่อน (ถ้ามีอยู่แล้ว ระบบจะตรวจพบให้อัตโนมัติ)
-                </p>
-              </label>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>ชื่อเอกสาร</label>
-                  <input
-                    type="text"
-                    placeholder="กรอกชื่อเอกสาร"
-                    value={documentName}
-                    disabled={isParsing}
-                    onChange={(e) => setDocumentName(e.target.value)}
-                  />
-                </div>
+                <form className="upload-step-card" onSubmit={handleParse}>
+                  <div className="upload-card-body">
+                    <section className="upload-file-section">
+                      <div className="upload-section-heading">
+                        <h2>ไฟล์เอกสาร</h2>
+                        <p>เลือกไฟล์ที่ต้องการเพิ่มเข้าสู่ฐานความรู้</p>
+                      </div>
 
-                <div className="form-group">
-                  <label>หมวดหมู่</label>
-                  <select
-                    value={categoryId}
-                    disabled={isParsing}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                  >
-                    <option value="">เลือกหมวดหมู่</option>
-                    {categories.map((c) => (
-                      <option key={c.category_id} value={c.category_id}>
-                        {c.category_name}
-                      </option>
-                    ))}
-                  </select>
-                  {categoriesError && <p className="error-message">{categoriesError}</p>}
-                </div>
-              </div>
+                      <label
+                        className={isDragOver ? "upload-dropzone is-dragging" : "upload-dropzone"}
+                        onDragOver={(e) => { e.preventDefault(); if (!isParsing) setIsDragOver(true); }}
+                        onDragLeave={() => setIsDragOver(false)}
+                        onDrop={handleDrop}
+                      >
+                        <input
+                          type="file"
+                          accept=".docx,.pdf"
+                          hidden
+                          disabled={isParsing}
+                          onChange={(e) => {
+                            setFile(e.target.files?.[0] || null);
+                            setIsDragOver(false);
+                          }}
+                        />
+                        <div className="upload-dropzone-content">
+                          {!file ? (
+                            <>
+                              <div className="upload-icon" aria-hidden="true">↑</div>
+                              <h3>วางไฟล์ที่นี่</h3>
+                              <p>หรือ <span>คลิกเพื่อเลือกไฟล์</span></p>
+                              <small>รองรับ DOCX และ PDF · ขนาดไม่เกิน 20 MB</small>
+                            </>
+                          ) : (
+                            <div className="upload-selected-file">
+                              <div className="upload-file-icon" aria-hidden="true">📄</div>
+                              <div className="upload-file-info">
+                                <strong>{file.name}</strong>
+                                <span>{file.name.toLowerCase().endsWith(".pdf") ? "PDF" : "DOCX"}</span>
+                              </div>
+                              <button
+                                type="button"
+                                className="upload-remove-file"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!isParsing) setFile(null);
+                                }}
+                                aria-label="เปลี่ยนไฟล์"
+                                title="เปลี่ยนไฟล์"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </label>
 
-              <div className="form-group">
-                <label>คำอธิบาย</label>
-                <input
-                  type="text"
-                  placeholder="รายละเอียดเอกสาร (ไม่บังคับ)"
-                  value={description}
-                  disabled={isParsing}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
+                      <div className="upload-tip">
+                        <span className="upload-tip-icon" aria-hidden="true">💡</span>
+                        <p>
+                          ระบบจะตรวจจับ Heading จากเอกสารให้อัตโนมัติหากมีอยู่แล้ว
+                          และคุณสามารถตรวจสอบหรือแก้ไขโครงสร้างได้ในขั้นตอนถัดไป
+                        </p>
+                      </div>
+                    </section>
 
-              {isParsing && (
-                <div className="progress-box">
-                  <div className="progress-bar-track">
-                    <div className="progress-bar-fill" style={{ width: `${uploadProgress}%` }} />
+                    <section className="upload-info-section">
+                      <div className="upload-section-heading">
+                        <h2>ข้อมูลเอกสาร</h2>
+                        <p>ระบุรายละเอียดเพื่อช่วยจัดการเอกสาร</p>
+                      </div>
+
+                      <div className="upload-field">
+                        <label>ชื่อเอกสาร <span className="upload-required">*</span></label>
+                        <input
+                          type="text"
+                          placeholder="เช่น หลักสูตรวิทยาศาสตรบัณฑิต พ.ศ. 2569"
+                          value={documentName}
+                          disabled={isParsing}
+                          onChange={(e) => setDocumentName(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="upload-field">
+                        <label>หมวดหมู่ <span className="upload-required">*</span></label>
+                        <select
+                          value={categoryId}
+                          disabled={isParsing}
+                          onChange={(e) => setCategoryId(e.target.value)}
+                        >
+                          <option value="">เลือกหมวดหมู่</option>
+                          {categories.map((c) => (
+                            <option key={c.category_id} value={c.category_id}>
+                              {c.category_name}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="category-manage-row">
+                          <span className="upload-field-hint">ใช้สำหรับจัดกลุ่มและค้นหาเอกสาร</span>
+                          <button
+                            type="button"
+                            className="category-add-button"
+                            onClick={() => {
+                              setCategoryCreateError("");
+                              setNewCategoryName("");
+                              setShowCategoryModal(true);
+                            }}
+                            disabled={isParsing}
+                          >
+                            ＋ เพิ่มหมวดหมู่
+                          </button>
+                        </div>
+
+                        {categoriesError && <p className="error-message">{categoriesError}</p>}
+                      </div>
+
+                      <div className="upload-field">
+                        <label>คำอธิบาย <span className="upload-optional">ไม่บังคับ</span></label>
+                        <textarea
+                          rows="4"
+                          placeholder="เพิ่มรายละเอียดเกี่ยวกับเอกสารนี้..."
+                          value={description}
+                          disabled={isParsing}
+                          onChange={(e) => setDescription(e.target.value)}
+                        />
+                      </div>
+                    </section>
                   </div>
-                  <div className="progress-info">
-                    <span>
-                      {uploadProgress < 85
-                        ? "กำลังส่งไฟล์ขึ้นเซิร์ฟเวอร์..."
-                        : "กำลังอ่านโครงสร้างเอกสาร..."}
-                    </span>
-                    <span>{uploadProgress}%</span>
+
+                  {isParsing && (
+                    <div className="upload-progress-card">
+                      <div className="upload-progress-top">
+                        <div>
+                          <strong>กำลังเตรียมเอกสาร</strong>
+                          <span>{uploadProgress < 85 ? "กำลังอัปโหลดไฟล์..." : "กำลังอ่านโครงสร้างเอกสาร..."}</span>
+                        </div>
+                        <strong>{uploadProgress}%</strong>
+                      </div>
+                      <div className="upload-progress-track">
+                        <div className="upload-progress-fill" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {parseError && <div className="upload-error" role="alert">⚠️ {parseError}</div>}
+
+                  <div className="upload-actions">
+                    <button
+                      type="button"
+                      className="upload-secondary-action"
+                      onClick={() => navigate("/admin/documents")}
+                      disabled={isParsing}
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      className="upload-primary-action"
+                      disabled={isParsing || !file || !categoryId || !documentName.trim()}
+                    >
+                      {isParsing && <Spinner />}
+                      {isParsing ? "กำลังอ่านไฟล์..." : <>ถัดไป <span>→</span></>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {showCategoryModal && (
+                <div
+                  className="category-modal-backdrop"
+                  onMouseDown={() => { if (!isCreatingCategory) setShowCategoryModal(false); }}
+                >
+                  <div
+                    className="category-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="category-modal-title"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="category-modal-header">
+                      <div>
+                        <h2 id="category-modal-title">เพิ่มหมวดหมู่</h2>
+                        <p>สร้างหมวดหมู่ใหม่สำหรับจัดกลุ่มเอกสาร</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="category-modal-close"
+                        onClick={() => setShowCategoryModal(false)}
+                        disabled={isCreatingCategory}
+                        aria-label="ปิด"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleCreateCategory}>
+                      <div className="upload-field">
+                        <label>ชื่อหมวดหมู่ <span className="upload-required">*</span></label>
+                        <input
+                          autoFocus
+                          type="text"
+                          value={newCategoryName}
+                          placeholder="เช่น การสำเร็จการศึกษา"
+                          maxLength={255}
+                          disabled={isCreatingCategory}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                        />
+                        <span className="upload-field-hint">
+                          ใช้ชื่อที่สั้นและสื่อความหมาย เพื่อให้ค้นหาเอกสารได้ง่าย
+                        </span>
+                      </div>
+
+                      {categoryCreateError && <div className="upload-error" role="alert">⚠️ {categoryCreateError}</div>}
+
+                      <div className="category-modal-actions">
+                        <button
+                          type="button"
+                          className="upload-secondary-action"
+                          onClick={() => setShowCategoryModal(false)}
+                          disabled={isCreatingCategory}
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="submit"
+                          className="upload-primary-action"
+                          disabled={isCreatingCategory || !newCategoryName.trim()}
+                        >
+                          {isCreatingCategory && <Spinner />}
+                          {isCreatingCategory ? "กำลังบันทึก..." : "บันทึกหมวดหมู่"}
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </div>
               )}
-
-              {parseError && <p className="error-message">{parseError}</p>}
-
-              <button
-                type="submit"
-                className="upload-btn"
-                disabled={isParsing || !file || !categoryId || !documentName.trim()}
-              >
-                {isParsing && <Spinner />}
-                {isParsing ? "กำลังอ่านไฟล์..." : "ถัดไป: ทำเครื่องหมายหัวข้อ"}
-              </button>
-            </form>
+            </>
           )}
-
           {step === "mark" && (
             <>
               {autoDetectedCount > 0 && (
