@@ -36,7 +36,6 @@ function Chat() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [expandedSources, setExpandedSources] = useState({})
-  const [copiedMessage, setCopiedMessage] = useState(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
 
   const messagesRef = useRef(null)
@@ -63,16 +62,6 @@ function Chat() {
     el.addEventListener('scroll', handleScroll, { passive: true })
     return () => el.removeEventListener('scroll', handleScroll)
   }, [chatHistory.length])
-
-  const copyAnswer = async (text, index) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopiedMessage(index)
-      window.setTimeout(() => setCopiedMessage(null), 1400)
-    } catch (err) {
-      console.error(err)
-    }
-  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -142,12 +131,6 @@ function Chat() {
 
   const hasMessages = chatHistory.length > 0
 
-  const quickPrompts = [
-    'หลักสูตรนี้มีทั้งหมดกี่หน่วยกิต?',
-    'มีรายวิชาอะไรบ้างในชั้นปีที่ 1?',
-    'อธิบาย PLO ของหลักสูตรนี้',
-    'มีวิชาเลือกอะไรให้ลงทะเบียนบ้าง?',
-  ]
   const avatarLetter = user?.username ? user.username[0].toUpperCase() : 'U'
   const isAdmin = user?.role_id === 'R01'
 
@@ -237,13 +220,6 @@ function Chat() {
             </div>
             <h1>สวัสดี พร้อมตอบทุกคำถามคณะวิทย์</h1>
             <p>ถามเรื่องหลักสูตร อาจารย์ รายวิชา หรือขั้นตอนต่างๆ ได้เลย คำตอบอ้างอิงจากเอกสารจริงของคณะ</p>
-            <div className="chip-row">
-              {quickPrompts.map((prompt) => (
-                <button type="button" className="chip" key={prompt} onClick={() => sendMessage(prompt)}>
-                  {prompt}
-                </button>
-              ))}
-            </div>
           </div>
         ) : (
           <div className="messages" ref={messagesRef}>
@@ -255,16 +231,16 @@ function Chat() {
                 <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
                   <div className="message-text">{msg.text}</div>
                   {msg.role !== 'user' && !msg.isError && (
+                    {msg.sources?.length > 0 && (
                     <div className="message-tools">
-                      <button type="button" onClick={() => copyAnswer(msg.text, i)} title="คัดลอกคำตอบ">
-                        {copiedMessage === i ? '✓ คัดลอกแล้ว' : 'คัดลอก'}
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSources((prev) => ({ ...prev, [i]: !prev[i] }))}
+                      >
+                        แสดงแหล่งอ้างอิงของคำตอบ (Source) {expandedSources[i] ? '⌃' : '⌄'}
                       </button>
-                      {msg.sources?.length > 0 && (
-                        <button type="button" onClick={() => setExpandedSources((prev) => ({ ...prev, [i]: !prev[i] }))}>
-                          แหล่งข้อมูล {msg.sources.length} {expandedSources[i] ? '⌃' : '⌄'}
-                        </button>
-                      )}
                     </div>
+                  )}
                   )}
                   {msg.role !== 'user' && !msg.isError && expandedSources[i] && msg.sources?.length > 0 && (
                     <div className="citations">
