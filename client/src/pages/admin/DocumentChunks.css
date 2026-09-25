@@ -21,3 +21,35 @@
 .heading-chip{font-size:13px;padding:4px 10px}
 .outline-item{font-size:14px;padding:8px 10px}
 @media(max-width:760px){.chunks-title-row{flex-direction:column}.chunks-title{font-size:25px}.chunks-file-badge{align-self:flex-start}}
+
+
+
+/* Large readable scale */
+.chunks-page-header { margin-bottom: 24px; }
+.chunks-title { font-size: 34px; }
+.chunks-eyebrow { font-size: 14px; }
+.chunks-subtitle { font-size: 16px; }
+.chunks-file-badge { min-width: 62px; min-height: 40px; font-size: 14px; }
+
+.view-tabs { gap: 10px; margin-bottom: 22px; }
+.view-tab { min-height: 48px; padding: 10px 22px; font-size: 16px; }
+
+.full-doc-box { padding: 26px; }
+.full-doc-text { font-size: 16px; line-height: 1.9; }
+.chunk-list { gap: 14px; }
+.chunk-row { min-height: 62px; padding: 16px 20px; }
+.chunk-preview { font-size: 15px; }
+.chunk-detail-static { padding: 22px; }
+.chunk-card-header { padding: 16px 22px 0; }
+.chunk-edit-btn { min-height: 42px; padding: 8px 14px; font-size: 14px; }
+.chunk-edit-textarea { font-size: 16px; line-height: 1.85; padding: 14px 16px; }
+.heading-chip { font-size: 14px; padding: 5px 11px; }
+.heading-sep { font-size: 14px; }
+.outline-panel { padding: 22px; }
+.outline-item { font-size: 15px; padding: 10px 12px; }
+
+@media (max-width: 760px) {
+  .chunks-title { font-size: 29px; }
+  .chunks-subtitle { font-size: 15px; }
+  .full-doc-box { padding: 20px; }
+}
