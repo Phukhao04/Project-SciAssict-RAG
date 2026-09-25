@@ -2145,3 +2145,82 @@
     font-size: 25px;
   }
 }
+
+
+
+/* ============================================================
+   ADMIN GLOBAL — LARGE / READABLE UI SCALE
+   Shared foundation only; page-specific styling lives beside each page.
+   ============================================================ */
+
+.admin-main {
+  padding: 34px 40px;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.admin-content {
+  max-width: 1320px;
+}
+
+.admin-main h1 {
+  font-size: 34px;
+  line-height: 1.25;
+  margin-bottom: 10px;
+}
+
+.admin-main h2 {
+  font-size: 22px;
+}
+
+.admin-main h3 {
+  font-size: 18px;
+}
+
+.admin-main p {
+  font-size: 16px;
+}
+
+.admin-main input,
+.admin-main select,
+.admin-main textarea {
+  font-size: 16px;
+}
+
+.admin-main button {
+  font-size: 15px;
+}
+
+.panel {
+  padding: 24px;
+  border-radius: 14px;
+}
+
+.panel-title {
+  font-size: 16px;
+}
+
+.search-input {
+  min-height: 48px;
+  font-size: 16px;
+  padding: 12px 16px;
+}
+
+.back-link {
+  font-size: 17px;
+}
+
+.error-message {
+  font-size: 15px;
+}
+
+@media (max-width: 1000px) {
+  .admin-main { padding: 28px; }
+  .admin-content { max-width: none; }
+}
+
+@media (max-width: 760px) {
+  .admin-main { padding: 24px 18px; }
+  .admin-main h1 { font-size: 30px; }
+  .admin-main p { font-size: 15px; }
+}
