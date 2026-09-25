@@ -354,3 +354,25 @@
   .um-subtitle { font-size: 16px; }
   .um-table { min-width: 850px; }
 }
+
+
+
+/* Final balanced scale */
+.um-page { max-width: 1180px; }
+.um-eyebrow { font-size: 12px; }
+.um-title { font-size: 30px; }
+.um-subtitle { font-size: 15px; }
+.um-summary { gap: 14px; }
+.um-summary-card { min-height: 72px; padding: 15px 18px; }
+.um-summary-card span { font-size: 14px; }
+.um-summary-card strong { font-size: 23px; }
+.um-toolbar { padding: 14px; }
+.um-search input { min-height: 44px; font-size: 15px; }
+.um-table th { padding: 14px 16px; font-size: 13px; }
+.um-table td { padding: 15px 16px; font-size: 14px; }
+.um-role-badge { min-height: 30px; padding: 4px 10px; font-size: 13px; }
+.um-btn-edit { min-height: 38px; padding: 7px 12px; font-size: 13px; }
+.um-dropdown { width: 240px; }
+.um-dropdown-label { padding: 11px 14px; font-size: 13px; }
+.um-dropdown-item { padding: 12px 14px; font-size: 14px; }
+@media(max-width:760px){.um-title{font-size:26px}.um-subtitle{font-size:15px}}
