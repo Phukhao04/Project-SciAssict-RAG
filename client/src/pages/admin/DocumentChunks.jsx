@@ -177,10 +177,20 @@ function DocumentChunks() {
 
   return (
     <AdminLayout>
-      <div className="chunks-header">
-        <button className="back-link" onClick={() => navigate("/admin/documents")}>
-          &lt; {doc.document_name}
+      <div className="chunks-page-header">
+        <button type="button" className="back-link" onClick={() => navigate("/admin/documents")}>
+          ← กลับไปจัดการเอกสาร
         </button>
+        <div className="chunks-title-row">
+          <div>
+            <p className="chunks-eyebrow">รายละเอียดเอกสาร</p>
+            <h1 className="chunks-title">{doc.document_name}</h1>
+            <p className="chunks-subtitle">
+              {doc.category_name || "ไม่ระบุหมวดหมู่"} · {doc.chunks.length} Chunks
+            </p>
+          </div>
+          <span className="chunks-file-badge">{(doc.document_type || "file").replace(".", "").toUpperCase()}</span>
+        </div>
       </div>
 
       <div className="view-tabs">
@@ -198,6 +208,7 @@ function DocumentChunks() {
         </button>
       </div>
 
+      <div className="chunks-toolbar">
       <div className="search-input-wrap doc-search-wrap">
         <input
           type="text"
@@ -218,6 +229,7 @@ function DocumentChunks() {
           </button>
         )}
       </div>
+      </div>
       {filterText.trim() && view === "chunks" && (
         <p className="filter-hint">
           พบ {visibleChunks.length} จาก {chunksWithHeading.length} chunk
@@ -225,7 +237,7 @@ function DocumentChunks() {
       )}
 
       {outline.length > 0 && (
-        <div className="outline-panel panel">
+        <div className="outline-panel panel chunks-outline-panel">
           <p className="panel-title">สารบัญเอกสาร ({outline.length} หัวข้อ)</p>
           <ul className="outline-list">
             {outline.map((item) => {
