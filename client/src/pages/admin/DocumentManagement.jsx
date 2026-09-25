@@ -4,6 +4,7 @@ import AdminLayout from "../../components/admin/AdminLayout";
 import AppConfig from "../../config/appConfig";
 import { authHeaders } from "../../utils/authHeaders";
 import "./Admin.css";
+import "./DocumentManagement.css";
 
 const API_BASE_URL = AppConfig.apiBase;
 
