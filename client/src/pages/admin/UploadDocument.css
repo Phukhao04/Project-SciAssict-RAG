@@ -610,3 +610,21 @@
   .upload-info-section { padding: 22px; }
   .upload-actions { padding: 18px 22px; }
 }
+
+
+
+/* Final balanced scale */
+.upload-page { max-width: 1180px; }
+.upload-file-section,.upload-info-section { padding: 28px; }
+.upload-section-heading h2 { font-size: 19px; }
+.upload-section-heading p { font-size: 14px; }
+.upload-dropzone { min-height: 280px; padding: 30px; }
+.upload-icon { width: 60px; height: 60px; font-size: 28px; }
+.upload-dropzone h3 { font-size: 17px; }
+.upload-dropzone p { font-size: 14px; }
+.upload-field label { font-size: 14px; }
+.upload-field input,.upload-field select,.upload-field textarea { min-height: 46px; padding: 11px 13px; font-size: 15px; }
+.upload-field textarea { min-height: 110px; }
+.upload-actions { padding: 18px 28px; }
+.upload-secondary-action,.upload-primary-action { min-height: 44px; padding: 0 18px; font-size: 14px; }
+@media(max-width:560px){.upload-file-section,.upload-info-section{padding:22px}.upload-actions{padding:16px 22px}}
