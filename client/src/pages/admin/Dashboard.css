@@ -131,3 +131,33 @@
   .dashboard-panel-header { padding: 18px; }
   .dashboard-chart { height: 250px; }
 }
+
+
+
+/* Final balanced scale */
+.dashboard-page { max-width: 1180px; }
+.dashboard-header h1 { font-size: 30px; }
+.dashboard-eyebrow { font-size: 12px; }
+.dashboard-description { font-size: 15px; }
+.dashboard-primary-btn,.dashboard-refresh-btn { min-height: 44px; padding: 10px 17px; font-size: 14px; }
+.dashboard-stat-card { min-height: 88px; padding: 18px 20px; }
+.dashboard-stat-card span { font-size: 14px; }
+.dashboard-stat-card strong { font-size: 28px; }
+.dashboard-panel-header { padding: 18px 20px; }
+.dashboard-panel-header h2 { font-size: 17px; }
+.dashboard-panel-header p { font-size: 13px; }
+.dashboard-week-nav button { width: 36px; height: 36px; font-size: 24px; }
+.dashboard-week-nav span { min-width: 150px; padding: 8px 10px; font-size: 12px; }
+.dashboard-chart { height: 250px; gap: 12px; padding: 24px 24px 12px; }
+.dashboard-bar-value,.dashboard-bar-label { font-size: 12px; }
+.dashboard-chart-detail { margin: 0 20px 12px; padding: 12px 14px; font-size: 14px; }
+.dashboard-week-summary { padding: 0 20px 20px; }
+.dashboard-week-summary-item { padding: 12px 14px; }
+.dashboard-week-summary-item span { font-size: 12px; }
+.dashboard-week-summary-item strong { font-size: 18px; }
+.dashboard-doc-item { min-height: 64px; padding: 13px 10px; }
+.dashboard-doc-icon { width: 40px; height: 40px; flex-basis: 40px; font-size: 10px; }
+.dashboard-doc-info strong { font-size: 14px; }
+.dashboard-doc-info small { font-size: 12px; }
+.dashboard-doc-arrow { font-size: 19px; }
+@media(max-width:620px){.dashboard-header h1{font-size:26px}.dashboard-chart{height:210px;padding:20px 14px 10px}}
