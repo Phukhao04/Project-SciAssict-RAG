@@ -7,6 +7,7 @@ from app.schemas.rag import (
     ChatResponse,
     IngestResponse,
     CategoryResponse,
+    CategoryCreateRequest,
     DocumentListItem,
     DocumentDetailResponse,
     StatsResponse,
@@ -17,6 +18,7 @@ from app.utils.retrieval import retrieve
 from app.crud.chat_crud import create_session, save_message
 from app.crud.document_crud import (
     get_all_categories,
+    create_category,
     delete_document,
     get_all_documents,
     get_document_detail,
@@ -31,6 +33,17 @@ router = APIRouter(prefix="/api/rag", tags=["RAG"])
 def list_categories(db: Session = Depends(get_db)):
     """ให้ frontend ดึงไปแสดงใน dropdown ตอนอัปโหลดเอกสาร"""
     return get_all_categories(db)
+
+
+@router.post("/categories", response_model=CategoryResponse, status_code=201)
+def add_category(
+    payload: CategoryCreateRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        return create_category(db, payload.category_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/documents/{document_id}", response_model=DocumentDetailResponse)

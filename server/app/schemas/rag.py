@@ -12,13 +12,17 @@ class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1)
     k: int = Field(default=5, ge=1, le=20)
     user_id: int
-    session_id: int | None = None  # None = ให้ backend สร้าง session ใหม่อัตโนมัติ
+    session_id: int | None = None
 
 
 class ChatResponse(BaseModel):
     answer: str
     sources: list[str] = Field(default_factory=list)
-    session_id: int  # ส่งกลับเสมอ (ใหม่หรือเดิมก็ตาม) ให้ frontend เอาไปใช้ครั้งถัดไป
+    session_id: int
+
+
+class CategoryCreateRequest(BaseModel):
+    category_name: str = Field(..., min_length=1, max_length=255)
 
 
 class CategoryResponse(BaseModel):

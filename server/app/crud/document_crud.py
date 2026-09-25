@@ -35,6 +35,36 @@ def get_all_categories(db: Session) -> list[dict]:
     ]
 
 
+def create_category(db: Session, category_name: str) -> dict:
+    name = category_name.strip()
+    if not name:
+        raise ValueError("ชื่อหมวดหมู่ต้องไม่ว่าง")
+
+    exists = db.execute(
+        text("""
+            SELECT category_id
+            FROM document_category
+            WHERE category_name = :category_name
+            LIMIT 1
+        """),
+        {"category_name": name},
+    ).first()
+
+    if exists is not None:
+        raise ValueError("มีหมวดหมู่นี้อยู่แล้ว")
+
+    result = db.execute(
+        text("""
+            INSERT INTO document_category (category_name)
+            VALUES (:category_name)
+        """),
+        {"category_name": name},
+    )
+    db.commit()
+
+    category_id = result.lastrowid
+    return {"category_id": int(category_id), "category_name": name}
+
 def get_all_documents(db: Session) -> list[dict]:
     sql = text("""
         SELECT
