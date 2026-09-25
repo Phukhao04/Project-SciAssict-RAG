@@ -1,0 +1,70 @@
+/* Dashboard page styles */
+
+.dashboard-page{max-width:1180px;margin:0 auto}
+.dashboard-header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:22px}
+.dashboard-header h1{margin:0 0 6px;font-family:'Kanit',sans-serif;font-size:30px;font-weight:600;line-height:1.25}
+.dashboard-eyebrow{margin:0 0 5px;color:#8a8579;font-size:12px;font-weight:700;letter-spacing:.05em}
+.dashboard-description{margin:0;color:#6b6f8a;font-size:15px;line-height:1.65}
+.dashboard-header-actions{display:flex;align-items:center;gap:9px}
+.dashboard-primary-btn,.dashboard-refresh-btn{min-height:44px;padding:10px 17px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer}
+.dashboard-primary-btn{border:0;background:#FFD400;color:#0B1150}
+.dashboard-primary-btn:hover{background:#E6BF00}
+.dashboard-refresh-btn{border:1px solid #D8DCEE;background:#fff;color:#0B1150}
+.dashboard-refresh-btn:hover:not(:disabled){background:#F4F5FC;border-color:#0B1150}
+.dashboard-refresh-btn:disabled{opacity:.6;cursor:wait}
+
+.dashboard-error{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;padding:13px 16px;border:1px solid #F1C5BF;border-radius:9px;background:#FFF0EE;color:#A93226;font-size:14px}
+.dashboard-error span{flex:1;min-width:180px}
+.dashboard-error button{min-height:36px;padding:7px 12px;border:1px solid #F1C5BF;border-radius:7px;background:#fff;color:#A93226;font-weight:700;cursor:pointer}
+
+.dashboard-stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.dashboard-stat-card{display:flex;align-items:center;justify-content:space-between;gap:15px;min-height:88px;padding:18px 20px;background:#fff;border:1px solid #E7E4D6;border-radius:12px;transition:.15s ease}
+.dashboard-stat-card:hover{transform:translateY(-1px);border-color:#D8DCEE;box-shadow:0 6px 18px rgba(11,17,80,.06)}
+.dashboard-stat-card span{color:#6b6f8a;font-size:14px}
+.dashboard-stat-card strong{color:#0B1150;font-size:28px;line-height:1}
+
+.dashboard-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(330px,.85fr);gap:16px;align-items:start}
+.dashboard-panel{background:#fff;border:1px solid #E7E4D6;border-radius:14px;overflow:hidden}
+.dashboard-panel-header{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;padding:18px 20px;border-bottom:1px solid #E7E4D6}
+.dashboard-panel-header h2{margin:0 0 4px;color:#181A2A;font-size:17px;font-weight:700}
+.dashboard-panel-header p{margin:0;color:#8a8579;font-size:13px}
+.dashboard-text-btn{border:0;background:transparent;color:#0B1150;font-size:13px;font-weight:700;padding:6px 2px;cursor:pointer}
+.dashboard-text-btn:hover{text-decoration:underline}
+
+.dashboard-week-nav{display:flex;align-items:center;gap:7px}
+.dashboard-week-nav button{width:36px;height:36px;border:1px solid #E7E4D6;border-radius:7px;background:#fff;color:#0B1150;font-size:24px;line-height:1;cursor:pointer}
+.dashboard-week-nav button:hover:not(:disabled){background:#FDFBF2;border-color:#0B1150}
+.dashboard-week-nav button:disabled{opacity:.35;cursor:not-allowed}
+.dashboard-week-nav span{min-width:150px;padding:8px 10px;border:1px solid #E7E4D6;border-radius:7px;color:#6b6f8a;font-size:12px;text-align:center}
+
+.dashboard-chart{display:flex;align-items:flex-end;gap:12px;height:250px;padding:24px 24px 12px}
+.dashboard-bar-column{flex:1;height:100%;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;border:0;background:transparent;padding:0;cursor:pointer}
+.dashboard-bar{display:block;width:min(48px,72%);min-height:5px;border-radius:7px 7px 3px 3px;background:#FFF0A8;transition:.15s ease}
+.dashboard-bar-column:hover .dashboard-bar{background:#FFD400;transform:translateY(-2px)}
+.dashboard-bar-column.selected .dashboard-bar{background:#0B1150}
+.dashboard-bar-value{height:18px;color:#0B1150;font-size:12px;font-weight:700}
+.dashboard-bar-label{color:#8a8579;font-size:12px}
+.dashboard-chart-detail{margin:0 20px 12px;padding:12px 14px;border-radius:8px;background:#F4F5FC;color:#6b6f8a;font-size:14px}
+.dashboard-chart-detail strong{color:#0B1150}
+
+.dashboard-week-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:0 20px 20px}
+.dashboard-week-summary-item{padding:12px 14px;border-radius:9px;background:#FDFBF2;border:1px solid #E7E4D6}
+.dashboard-week-summary-item span{display:block;color:#8a8579;font-size:12px;margin-bottom:4px}
+.dashboard-week-summary-item strong{color:#0B1150;font-size:18px}
+
+.dashboard-doc-list{padding:8px 12px}
+.dashboard-doc-item{width:100%;min-height:64px;display:flex;align-items:center;gap:12px;padding:13px 10px;border:0;border-bottom:1px solid #F0EEE6;border-radius:8px;background:#fff;text-align:left;cursor:pointer}
+.dashboard-doc-item:hover{background:#FDFBF2}
+.dashboard-doc-item:last-child{border-bottom:0}
+.dashboard-doc-icon{display:flex;align-items:center;justify-content:center;width:40px;height:40px;flex:0 0 40px;border-radius:8px;background:#F4F5FC;color:#0B1150;font-size:10px;font-weight:800}
+.dashboard-doc-info{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+.dashboard-doc-info strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#181A2A;font-size:14px}
+.dashboard-doc-info small{color:#8a8579;font-size:12px}
+.dashboard-doc-arrow{color:#8a8579;font-size:19px}
+.dashboard-doc-item:hover .dashboard-doc-arrow{color:#0B1150}
+.dashboard-empty{min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#8a8579;font-size:14px}
+.dashboard-empty button{min-height:38px;padding:8px 14px;border:1px solid #D8DCEE;border-radius:7px;background:#F4F5FC;color:#0B1150;font-size:13px;font-weight:700;cursor:pointer}
+
+@media(max-width:900px){.dashboard-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.dashboard-header{align-items:stretch;flex-direction:column}.dashboard-header-actions{width:100%}.dashboard-header-actions button{flex:1}.dashboard-week-summary{grid-template-columns:1fr}}
+@media(max-width:620px){.dashboard-header h1{font-size:26px}.dashboard-stat-grid{grid-template-columns:1fr}.dashboard-panel-header{flex-direction:column}.dashboard-week-nav{width:100%}.dashboard-week-nav span{flex:1}.dashboard-chart{height:210px;padding:20px 14px 10px}}
