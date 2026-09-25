@@ -8,6 +8,7 @@ import AppConfig from "../../config/appConfig";
 import { authHeaders } from "../../utils/authHeaders";
 import { extractChunkHeading } from "../../utils/chunkHeading";
 import "./Admin.css";
+import "./DocumentChunks.css";
 
 const API_BASE_URL = AppConfig.apiBase;
 
