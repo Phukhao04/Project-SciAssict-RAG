@@ -712,13 +712,6 @@ function UploadDocument() {
                 </div>
               </div>
 
-              {autoDetectedCount > 0 && (
-                <div className="auto-detect-banner">
-                  ระบบตรวจพบ Heading จาก Word Style จำนวน {autoDetectedCount} รายการ และทำเครื่องหมายไว้ให้แล้ว
-                  — ตรวจสอบและแก้ไขได้ตามต้องการ
-                </div>
-              )}
-
               <div className="structure-workspace">
                 <section className="structure-editor-card">
                   <div className="structure-card-header">
