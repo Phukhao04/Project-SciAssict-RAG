@@ -219,3 +219,41 @@
   }
   .admin-content { max-width:none; }
 }
+
+
+/* Readable sidebar scale */
+.admin-brand {
+  font-size: 17px;
+}
+
+.admin-brand-sub {
+  font-size: 13px;
+}
+
+.sidebar-group-label {
+  font-size: 12px;
+}
+
+.admin-menu-item {
+  font-size: 15px;
+  padding: 12px 14px;
+}
+
+.admin-user-name {
+  font-size: 14px;
+}
+
+.admin-user-menu-item {
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .admin-sidebar {
+    width: 280px;
+  }
+
+  .admin-menu-item {
+    font-size: 16px;
+    padding: 13px 14px;
+  }
+}
