@@ -20,6 +20,7 @@ function Dashboard() {
   const [recentDocs, setRecentDocs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const loadDashboard = useCallback(async () => {
     setIsLoading(true);
@@ -48,6 +49,7 @@ function Dashboard() {
       setQueryActivity(Array.isArray(activityData) ? activityData : []);
       setRecentDocs(Array.isArray(docsData) ? docsData.slice(0, 5) : []);
       setLoadError("");
+      setLastUpdated(new Date());
       setWeekIndex(0);
       setSelectedDay(null);
     } catch (err) {
@@ -97,13 +99,23 @@ function Dashboard() {
               ภาพรวมเอกสาร การจัดทำดัชนี และการใช้งาน Sci Assistant
             </p>
           </div>
-          <button
-            type="button"
-            className="dashboard-primary-btn"
-            onClick={() => navigate("/admin/upload")}
-          >
-            ＋ เพิ่มเอกสาร
-          </button>
+          <div className="dashboard-header-actions">
+            <button
+              type="button"
+              className="dashboard-refresh-btn"
+              onClick={loadDashboard}
+              disabled={isLoading}
+            >
+              ↻ รีเฟรช
+            </button>
+            <button
+              type="button"
+              className="dashboard-primary-btn"
+              onClick={() => navigate("/admin/upload")}
+            >
+              ＋ เพิ่มเอกสาร
+            </button>
+          </div>
         </div>
 
         {loadError && (
@@ -128,7 +140,10 @@ function Dashboard() {
             <div className="dashboard-panel-header">
               <div>
                 <h2>การใช้งาน Query</h2>
-                <p>จำนวนคำถามที่ระบบได้รับในแต่ละวัน</p>
+                <p>
+                  จำนวนคำถามที่ระบบได้รับในแต่ละวัน
+                  {lastUpdated && <> · อัปเดต {lastUpdated.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</>}
+                </p>
               </div>
               {currentWeekData.length > 0 && (
                 <div className="dashboard-week-nav">
@@ -187,6 +202,20 @@ function Dashboard() {
                     {selected.date} ({selected.day}) · <strong>{selected.count}</strong> คำถาม
                   </div>
                 )}
+                <div className="dashboard-week-summary" aria-label="สรุปการใช้งานช่วงที่แสดง">
+                  <div className="dashboard-week-summary-item">
+                    <span>รวมคำถาม</span>
+                    <strong>{currentWeekData.reduce((sum, d) => sum + (Number(d.count) || 0), 0).toLocaleString("th-TH")}</strong>
+                  </div>
+                  <div className="dashboard-week-summary-item">
+                    <span>เฉลี่ยต่อวัน</span>
+                    <strong>{currentWeekData.length ? Math.round(currentWeekData.reduce((sum, d) => sum + (Number(d.count) || 0), 0) / currentWeekData.length).toLocaleString("th-TH") : "0"}</strong>
+                  </div>
+                  <div className="dashboard-week-summary-item">
+                    <span>วันที่มี Query สูงสุด</span>
+                    <strong>{currentWeekData.length ? Math.max(...currentWeekData.map((d) => Number(d.count) || 0)).toLocaleString("th-TH") : "0"}</strong>
+                  </div>
+                </div>
               </>
             )}
           </section>
