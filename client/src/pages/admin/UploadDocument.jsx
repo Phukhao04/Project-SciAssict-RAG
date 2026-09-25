@@ -112,7 +112,7 @@ function UploadDocument() {
 
   const validateAndSetFile = (selectedFile) => {
     if (!selectedFile) return;
-    const isSupported = /\\.(docx|pdf)$/i.test(selectedFile.name);
+    const isSupported = /\.(docx|pdf)$/i.test(selectedFile.name);
     const maxSize = 20 * 1024 * 1024;
 
     if (!isSupported) {
@@ -129,7 +129,7 @@ function UploadDocument() {
     setFileError("");
     setFile(selectedFile);
     if (!documentName.trim()) {
-      setDocumentName(selectedFile.name.replace(/\\.(docx|pdf)$/i, ""));
+      setDocumentName(selectedFile.name.replace(/\.(docx|pdf)$/i, ""));
     }
   };
 
