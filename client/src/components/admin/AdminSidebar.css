@@ -257,3 +257,23 @@
     padding: 13px 14px;
   }
 }
+
+
+
+/* Large readable sidebar scale */
+.admin-sidebar { width: 270px; padding: 20px; }
+.admin-brand-row { gap: 12px; margin-bottom: 28px; }
+.admin-brand-logo { width: 42px; height: 42px; border-radius: 12px; }
+.admin-brand { font-size: 19px; }
+.admin-brand-sub { font-size: 13px; }
+.sidebar-group-label { font-size: 13px; margin: 24px 0 10px 5px; }
+.admin-menu-item { padding: 14px 15px; margin-bottom: 6px; border-radius: 10px; font-size: 16px; }
+.admin-sidebar-user { gap: 12px; padding: 18px 5px; }
+.admin-user-avatar { width: 40px; height: 40px; font-size: 15px; }
+.admin-user-name { font-size: 15px; }
+.admin-user-menu-item { font-size: 15px; padding: 14px 16px; }
+@media (max-width:760px) {
+  .admin-sidebar { width: 300px; }
+  .admin-menu-item { font-size: 17px; padding: 15px 16px; }
+  .admin-brand { font-size: 20px; }
+}
