@@ -1,0 +1,23 @@
+/* Document chunks page styles */
+.chunks-page-header{margin-bottom:20px}
+.chunks-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-top:10px}
+.chunks-eyebrow{margin:0 0 5px;color:#8a8579;font-size:12px;font-weight:700;letter-spacing:.05em}
+.chunks-title{margin:0 0 6px;color:#181A2A;font-family:'Kanit',sans-serif;font-size:28px;line-height:1.3;font-weight:600}
+.chunks-subtitle{margin:0;color:#6b6f8a;font-size:15px}
+.chunks-file-badge{display:inline-flex;align-items:center;justify-content:center;min-width:52px;min-height:34px;padding:5px 10px;border-radius:8px;background:#F4F5FC;color:#0B1150;font-size:12px;font-weight:800}
+.chunks-toolbar{margin-bottom:12px}
+.chunks-outline-panel{margin-top:20px}
+.chunks-page-header .back-link{font-size:16px}
+.view-tabs{gap:9px}
+.view-tab{min-height:42px;padding:9px 18px;font-size:15px}
+.full-doc-box{padding:22px}
+.full-doc-text{font-size:15px;line-height:1.85}
+.chunk-row{min-height:54px;padding:14px 18px}
+.chunk-preview{font-size:14px}
+.chunk-detail-static{padding:18px}
+.chunk-card-header{padding:14px 18px 0}
+.chunk-edit-btn{min-height:36px;font-size:13px;padding:6px 12px}
+.chunk-edit-textarea{font-size:15px;line-height:1.8;padding:12px 14px}
+.heading-chip{font-size:13px;padding:4px 10px}
+.outline-item{font-size:14px;padding:8px 10px}
+@media(max-width:760px){.chunks-title-row{flex-direction:column}.chunks-title{font-size:25px}.chunks-file-badge{align-self:flex-start}}
