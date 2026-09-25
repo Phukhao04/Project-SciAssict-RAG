@@ -68,3 +68,66 @@
 @media(max-width:900px){.dashboard-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.dashboard-header{align-items:stretch;flex-direction:column}.dashboard-header-actions{width:100%}.dashboard-header-actions button{flex:1}.dashboard-week-summary{grid-template-columns:1fr}}
 @media(max-width:620px){.dashboard-header h1{font-size:26px}.dashboard-stat-grid{grid-template-columns:1fr}.dashboard-panel-header{flex-direction:column}.dashboard-week-nav{width:100%}.dashboard-week-nav span{flex:1}.dashboard-chart{height:210px;padding:20px 14px 10px}}
+
+
+
+/* Large readable scale */
+.dashboard-page { max-width: 1320px; }
+.dashboard-header { margin-bottom: 26px; }
+.dashboard-header h1 { font-size: 36px; }
+.dashboard-eyebrow { font-size: 14px; }
+.dashboard-description { font-size: 17px; }
+.dashboard-primary-btn,
+.dashboard-refresh-btn { min-height: 50px; padding: 12px 20px; font-size: 16px; border-radius: 10px; }
+
+.dashboard-stat-grid { gap: 16px; margin-bottom: 18px; }
+.dashboard-stat-card { min-height: 104px; padding: 22px 24px; border-radius: 14px; }
+.dashboard-stat-card span { font-size: 16px; }
+.dashboard-stat-card strong { font-size: 34px; }
+
+.dashboard-grid { gap: 18px; }
+.dashboard-panel { border-radius: 15px; }
+.dashboard-panel-header { padding: 21px 24px; }
+.dashboard-panel-header h2 { font-size: 20px; }
+.dashboard-panel-header p { font-size: 14px; }
+
+.dashboard-week-nav { gap: 9px; }
+.dashboard-week-nav button { width: 42px; height: 42px; font-size: 27px; }
+.dashboard-week-nav span { min-width: 190px; padding: 10px 13px; font-size: 14px; }
+
+.dashboard-chart { height: 330px; gap: 18px; padding: 28px 28px 16px; }
+.dashboard-bar { width: min(58px, 78%); min-height: 7px; border-radius: 9px 9px 4px 4px; }
+.dashboard-bar-value { font-size: 14px; height: 22px; }
+.dashboard-bar-label { font-size: 14px; }
+
+.dashboard-chart-detail { margin: 0 24px 16px; padding: 15px 17px; font-size: 15px; }
+.dashboard-week-summary { gap: 12px; padding: 0 24px 24px; }
+.dashboard-week-summary-item { padding: 15px 17px; }
+.dashboard-week-summary-item span { font-size: 13px; }
+.dashboard-week-summary-item strong { font-size: 21px; }
+
+.dashboard-doc-list { padding: 10px 16px; }
+.dashboard-doc-item { min-height: 78px; padding: 16px 10px; gap: 14px; }
+.dashboard-doc-icon { width: 48px; height: 48px; flex-basis: 48px; font-size: 12px; border-radius: 10px; }
+.dashboard-doc-info strong { font-size: 16px; }
+.dashboard-doc-info small { font-size: 14px; }
+.dashboard-doc-arrow { font-size: 23px; }
+.dashboard-text-btn { font-size: 15px; }
+
+.dashboard-empty { min-height: 250px; font-size: 16px; }
+.dashboard-empty button { min-height: 44px; padding: 10px 16px; font-size: 15px; }
+
+@media (max-width: 760px) {
+  .dashboard-header h1 { font-size: 30px; }
+  .dashboard-description { font-size: 16px; }
+  .dashboard-chart { height: 280px; padding: 22px 14px 12px; }
+  .dashboard-week-summary { padding: 0 18px 20px; }
+}
+
+@media (max-width: 620px) {
+  .dashboard-stat-grid { grid-template-columns: 1fr; }
+  .dashboard-header-actions { flex-direction: column; }
+  .dashboard-header-actions button { width: 100%; }
+  .dashboard-panel-header { padding: 18px; }
+  .dashboard-chart { height: 250px; }
+}
