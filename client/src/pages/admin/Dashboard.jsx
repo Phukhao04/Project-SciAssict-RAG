@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import AppConfig from "../../config/appConfig";
 import "./Admin.css";
+import "./Dashboard.css";
 
 const API_BASE_URL = AppConfig.apiBase;
 
