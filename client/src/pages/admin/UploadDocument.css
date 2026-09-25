@@ -556,3 +556,57 @@
     width: 100%;
   }
 }
+
+
+/* Large readable scale */
+.upload-page { max-width: 1320px; }
+.upload-page-intro { font-size: 15px; }
+
+.upload-step-card { border-radius: 18px; }
+.upload-file-section,
+.upload-info-section { padding: 34px; }
+.upload-section-heading h2 { font-size: 21px; }
+.upload-section-heading p { font-size: 15px; }
+
+.upload-dropzone { min-height: 320px; padding: 38px; }
+.upload-icon { width: 68px; height: 68px; font-size: 32px; }
+.upload-dropzone h3 { font-size: 19px; }
+.upload-dropzone p { font-size: 15px; }
+.upload-dropzone small { font-size: 13px; }
+
+.upload-selected-file { padding: 20px; }
+.upload-file-icon { width: 50px; height: 50px; flex-basis: 50px; font-size: 23px; }
+.upload-file-info strong { font-size: 15px; }
+.upload-file-info span { font-size: 13px; }
+
+.upload-field { margin-bottom: 22px; }
+.upload-field label { font-size: 15px; }
+.upload-field input,
+.upload-field select,
+.upload-field textarea { min-height: 50px; padding: 13px 15px; font-size: 16px; }
+.upload-field textarea { min-height: 120px; }
+.upload-field-hint { font-size: 13px; }
+.category-add-button { font-size: 13px; }
+
+.upload-tip p { font-size: 14px; }
+.upload-progress-card { padding: 18px 20px; }
+.upload-progress-top strong { font-size: 15px; }
+.upload-progress-top span { font-size: 13px; }
+
+.upload-actions { padding: 20px 34px; }
+.upload-secondary-action,
+.upload-primary-action { min-height: 48px; padding: 0 22px; font-size: 15px; }
+
+.category-modal-header h2 { font-size: 21px; }
+.category-modal-header p { font-size: 14px; }
+.category-modal form { padding: 24px; }
+
+@media (max-width: 850px) {
+  .upload-file-section,
+  .upload-info-section { padding: 28px; }
+}
+@media (max-width: 560px) {
+  .upload-file-section,
+  .upload-info-section { padding: 22px; }
+  .upload-actions { padding: 18px 22px; }
+}
