@@ -73,6 +73,7 @@ function UploadDocument() {
   const [isParsing, setIsParsing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [parseError, setParseError] = useState("");
+  const [fileError, setFileError] = useState("");
   const [filterText, setFilterText] = useState(""); // ค้นหา/กรองบรรทัด สำหรับเอกสารยาว
   const [autoDetectedCount, setAutoDetectedCount] = useState(0); // จำนวนที่ pre-fill จาก Word style
 
@@ -109,12 +110,33 @@ function UploadDocument() {
     };
   }, []);
 
+  const validateAndSetFile = (selectedFile) => {
+    if (!selectedFile) return;
+    const isSupported = /\\.(docx|pdf)$/i.test(selectedFile.name);
+    const maxSize = 20 * 1024 * 1024;
+
+    if (!isSupported) {
+      setFile(null);
+      setFileError("รองรับเฉพาะไฟล์ DOCX หรือ PDF");
+      return;
+    }
+    if (selectedFile.size > maxSize) {
+      setFile(null);
+      setFileError("ไฟล์มีขนาดเกิน 20 MB กรุณาเลือกไฟล์ที่เล็กกว่า");
+      return;
+    }
+
+    setFileError("");
+    setFile(selectedFile);
+    if (!documentName.trim()) {
+      setDocumentName(selectedFile.name.replace(/\\.(docx|pdf)$/i, ""));
+    }
+  };
+
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
-    if (e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-    }
+    if (!isParsing) validateAndSetFile(e.dataTransfer.files?.[0]);
   };
 
   // ใช้ XMLHttpRequest แทน fetch เพื่อโชว์ progress ระหว่างส่งไฟล์ขึ้นจริง
@@ -163,6 +185,7 @@ function UploadDocument() {
     if (!file || !categoryId || !documentName.trim() || !user?.user_id) return;
 
     setParseError("");
+    setFileError("");
     setIsParsing(true);
     setUploadProgress(0);
 
@@ -390,6 +413,7 @@ function UploadDocument() {
     setChunks([]);
     setSavedDocId(null);
     setParseError("");
+    setFileError("");
     setBuildError("");
     setConfirmError("");
   };
@@ -402,9 +426,10 @@ function UploadDocument() {
           {step === "meta" && (
             <>
               <div className="upload-page">
-                <p className="upload-page-intro">
-                  เพิ่มเอกสารเข้าสู่ฐานความรู้ของ Sci Assistant
-                </p>
+                <div className="upload-page-intro">
+                  <p>เพิ่มเอกสารเข้าสู่ฐานความรู้ของ Sci Assistant</p>
+                  <span>รองรับ DOCX และ PDF ขนาดไม่เกิน 20 MB</span>
+                </div>
 
                 <form className="upload-step-card" onSubmit={handleParse}>
                   <div className="upload-card-body">
@@ -426,8 +451,8 @@ function UploadDocument() {
                           hidden
                           disabled={isParsing}
                           onChange={(e) => {
-                            setFile(e.target.files?.[0] || null);
-                            setIsDragOver(false);
+                            validateAndSetFile(e.target.files?.[0]);
+                            e.target.value = "";
                           }}
                         />
                         <div className="upload-dropzone-content">
@@ -451,7 +476,7 @@ function UploadDocument() {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  if (!isParsing) setFile(null);
+                                  if (!isParsing) { setFile(null); setFileError(""); }
                                 }}
                                 aria-label="เปลี่ยนไฟล์"
                                 title="เปลี่ยนไฟล์"
@@ -464,12 +489,13 @@ function UploadDocument() {
                       </label>
 
                       <div className="upload-tip">
-                        <span className="upload-tip-icon" aria-hidden="true">💡</span>
+                        <span className="upload-tip-icon" aria-hidden="true">✓</span>
                         <p>
-                          ระบบจะตรวจจับ Heading จากเอกสารให้อัตโนมัติหากมีอยู่แล้ว
-                          และคุณสามารถตรวจสอบหรือแก้ไขโครงสร้างได้ในขั้นตอนถัดไป
+                          หากไฟล์มี Heading อยู่แล้ว ระบบจะตรวจจับให้อัตโนมัติ
+                          คุณสามารถตรวจสอบและแก้ไขได้ในขั้นตอนถัดไป
                         </p>
                       </div>
+                      {fileError && <div className="upload-inline-error" role="alert">{fileError}</div>}
                     </section>
 
                     <section className="upload-info-section">
@@ -520,7 +546,7 @@ function UploadDocument() {
                           </button>
                         </div>
 
-                        {categoriesError && <p className="error-message">{categoriesError}</p>}
+                        {categoriesError && <p className="upload-inline-error" role="alert">{categoriesError}</p>}
                       </div>
 
                       <div className="upload-field">
@@ -962,19 +988,44 @@ function UploadDocument() {
             </div>
           )}
           {step === "done" && (
-            <div className="panel">
-              <p>บันทึกเอกสารเรียบร้อยแล้ว ({chunks.length} chunk)</p>
-              <div className="mark-actions">
-                <button
-                  type="button"
-                  className="upload-btn"
-                  onClick={() => navigate(`/admin/documents/${savedDocId}`)}
-                >
-                  ดูเอกสารที่บันทึก
-                </button>
-                <button type="button" className="switch-page-btn" onClick={resetAll}>
-                  อัปโหลดเอกสารอื่นเพิ่ม
-                </button>
+            <div className="upload-success-page">
+              <div className="success-hero">
+                <div className="success-check" aria-hidden="true">✓</div>
+                <p className="success-eyebrow">ดำเนินการเสร็จสิ้น</p>
+                <h2>เพิ่มเอกสารเข้าสู่ฐานความรู้แล้ว</h2>
+                <p>เอกสารของคุณถูกบันทึกเรียบร้อย และพร้อมใช้งานในระบบค้นหาความรู้</p>
+              </div>
+
+              <div className="success-summary-card">
+                <div className="success-document">
+                  <div className="success-file-icon">📄</div>
+                  <div>
+                    <strong>{documentName}</strong>
+                    <span>{file?.name || "เอกสาร"} · {chunks.length} Chunks</span>
+                  </div>
+                </div>
+
+                <div className="success-details">
+                  <div><span>หมวดหมู่</span><strong>{categories.find((c) => String(c.category_id) === String(categoryId))?.category_name || "—"}</strong></div>
+                  <div><span>ประเภทไฟล์</span><strong>{file?.name?.toLowerCase().endsWith(".pdf") ? "PDF" : "DOCX"}</strong></div>
+                  <div><span>สถานะ</span><strong className="success-status">พร้อมใช้งาน</strong></div>
+                </div>
+              </div>
+
+              <div className="success-next">
+                <h3>ต้องการทำอะไรต่อ?</h3>
+                <div className="success-actions">
+                  <button
+                    type="button"
+                    className="upload-primary-action"
+                    onClick={() => navigate(`/admin/documents/${savedDocId}`)}
+                  >
+                    ดูรายละเอียดเอกสาร <span>→</span>
+                  </button>
+                  <button type="button" className="upload-secondary-action" onClick={resetAll}>
+                    อัปโหลดเอกสารอื่น
+                  </button>
+                </div>
               </div>
             </div>
           )}
