@@ -53,3 +53,23 @@
   .chunks-subtitle { font-size: 15px; }
   .full-doc-box { padding: 20px; }
 }
+
+
+
+/* Final balanced scale */
+.chunks-title { font-size: 28px; }
+.chunks-eyebrow { font-size: 12px; }
+.chunks-subtitle { font-size: 15px; }
+.chunks-file-badge { min-width: 52px; min-height: 34px; font-size: 12px; }
+.view-tab { min-height: 42px; padding: 9px 18px; font-size: 15px; }
+.full-doc-box { padding: 22px; }
+.full-doc-text { font-size: 15px; line-height: 1.85; }
+.chunk-row { min-height: 54px; padding: 14px 18px; }
+.chunk-preview { font-size: 14px; }
+.chunk-detail-static { padding: 18px; }
+.chunk-card-header { padding: 14px 18px 0; }
+.chunk-edit-btn { min-height: 36px; font-size: 13px; padding: 6px 12px; }
+.chunk-edit-textarea { font-size: 15px; line-height: 1.8; padding: 12px 14px; }
+.heading-chip { font-size: 13px; padding: 4px 10px; }
+.outline-item { font-size: 14px; padding: 8px 10px; }
+@media(max-width:760px){.chunks-title{font-size:25px}}
