@@ -321,3 +321,36 @@
     min-width: 760px;
   }
 }
+
+
+
+/* Large readable scale */
+.um-page { max-width: 1320px; }
+.um-header { margin-bottom: 24px; }
+.um-eyebrow { font-size: 14px; }
+.um-title { font-size: 36px; }
+.um-subtitle { font-size: 17px; }
+
+.um-summary { gap: 16px; margin-bottom: 18px; }
+.um-summary-card { min-height: 92px; padding: 20px 22px; border-radius: 14px; }
+.um-summary-card span { font-size: 16px; }
+.um-summary-card strong { font-size: 30px; }
+
+.um-toolbar { padding: 16px; border-radius: 12px; }
+.um-search { width: 520px; }
+.um-search input { min-height: 50px; padding: 13px 16px 13px 44px; font-size: 16px; }
+
+.um-table-wrap { border-radius: 14px; }
+.um-table th { padding: 18px 20px; font-size: 15px; }
+.um-table td { padding: 20px; font-size: 16px; }
+.um-role-badge { min-height: 34px; padding: 5px 13px; font-size: 14px; }
+.um-btn-edit { min-height: 44px; padding: 9px 16px; font-size: 15px; }
+.um-dropdown { width: 260px; }
+.um-dropdown-label { padding: 13px 17px; font-size: 14px; }
+.um-dropdown-item { padding: 14px 17px; font-size: 15px; }
+
+@media (max-width: 760px) {
+  .um-title { font-size: 30px; }
+  .um-subtitle { font-size: 16px; }
+  .um-table { min-width: 850px; }
+}
