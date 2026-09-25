@@ -272,6 +272,22 @@ function UploadDocument() {
   };
   const markedCount = Object.keys(levels).length;
 
+  const headingOutline = useMemo(() => {
+    return lines
+      .filter((line) => levels[line.index])
+      .map((line) => ({
+        index: line.index,
+        text: line.text,
+        level: levels[line.index],
+      }));
+  }, [lines, levels]);
+
+  const chunkStats = useMemo(() => {
+    const empty = chunks.filter((c) => !c.chunk_text.trim()).length;
+    const characters = chunks.reduce((sum, c) => sum + c.chunk_text.length, 0);
+    return { empty, characters };
+  }, [chunks]);
+
   const handleBuildChunks = async () => {
     if (isBuilding) return; // กันกดซ้ำระหว่างประมวลผล
     if (markedCount === 0) {
@@ -630,62 +646,104 @@ function UploadDocument() {
             </>
           )}
           {step === "mark" && (
-            <>
+            <div className="structure-page">
+              <div className="structure-header">
+                <div>
+                  <p className="structure-eyebrow">ขั้นตอนที่ 2 จาก 4</p>
+                  <h2>จัดโครงสร้างเอกสาร</h2>
+                  <p>
+                    กำหนดว่าแต่ละบรรทัดเป็น H1, H2 หรือ H3 เพื่อให้ระบบแบ่งเนื้อหาเป็น Chunk
+                    ได้ถูกต้อง
+                  </p>
+                </div>
+
+                <div className="structure-stats">
+                  <div className="structure-stat">
+                    <strong>{markedCount}</strong>
+                    <span>หัวข้อ</span>
+                  </div>
+                  <div className="structure-stat">
+                    <strong>{lines.length}</strong>
+                    <span>บรรทัด</span>
+                  </div>
+                  {autoDetectedCount > 0 && (
+                    <div className="structure-stat is-info">
+                      <strong>{autoDetectedCount}</strong>
+                      <span>ตรวจพบอัตโนมัติ</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="structure-guide">
+                <span className="structure-guide-icon">💡</span>
+                <div>
+                  <strong>วิธีใช้งาน</strong>
+                  <span>
+                    เลือก H1 สำหรับหัวข้อหลัก, H2 สำหรับหัวข้อย่อย และ H3 สำหรับหัวข้อย่อยระดับถัดไป
+                    ไม่ต้องทำเครื่องหมายทุกบรรทัด
+                  </span>
+                </div>
+              </div>
+
               {autoDetectedCount > 0 && (
-                <p className="auto-detect-banner">
-                  ตรวจพบหัวข้อจาก Word Style ในไฟล์อัตโนมัติ {autoDetectedCount} รายการ
-                  (ทำเครื่องหมายไว้ให้แล้ว) — ตรวจสอบสารบัญด้านขวาแล้วกด &quot;สร้าง
-                  Chunk&quot; ต่อได้เลยถ้าถูกต้อง
-                </p>
+                <div className="auto-detect-banner">
+                  ระบบตรวจพบ Heading จาก Word Style จำนวน {autoDetectedCount} รายการ และทำเครื่องหมายไว้ให้แล้ว
+                  — ตรวจสอบและแก้ไขได้ตามต้องการ
+                </div>
               )}
 
-                <div className="mark-main">
-                  <div className="search-input-wrap">
-                    <input
-                      type="text"
-                      className="search-input mark-search"
-                      placeholder="ค้นหาข้อความ เพื่อกรองบรรทัดในเอกสารยาวๆ..."
-                      value={filterText}
-                      onChange={(e) => setFilterText(e.target.value)}
-                    />
-                    {filterText && (
-                      <button
-                        type="button"
-                        className="search-clear-btn"
-                        onClick={() => setFilterText("")}
-                        title="ล้างคำค้นหา"
-                        aria-label="ล้างคำค้นหา"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                  {filterText.trim() && visibleLines.length > 0 && (
-                    <p className="filter-hint">
-                      พบ {visibleLines.length} จาก {lines.length} บรรทัด
-                    </p>
-                  )}
+              <div className="structure-workspace">
+                <section className="structure-editor-card">
+                  <div className="structure-card-header">
+                    <div>
+                      <h3>เนื้อหาเอกสาร</h3>
+                      <span>
+                        {filterText.trim()
+                          ? `แสดง ${visibleLines.length} จาก ${lines.length} บรรทัด`
+                          : `${lines.length} บรรทัด`}
+                      </span>
+                    </div>
 
-                  <div className="mark-hint-row">
-                    <span
-                      className={
-                        markedCount > 0 ? "mark-progress-badge active" : "mark-progress-badge"
-                      }
-                    >
-                      ทำเครื่องหมายแล้ว {markedCount} หัวข้อ
-                    </span>
-                    <p className="mark-hint-line">
-                      คลิก H1/H2/H3 ที่ต้องการต่อบรรทัด คลิกซ้ำที่กำลังเลือกอยู่เพื่อยกเลิก
-                    </p>
+                    <div className="structure-keyboard-hint">
+                      <kbd>1</kbd> H1
+                      <kbd>2</kbd> H2
+                      <kbd>3</kbd> H3
+                      <kbd>0</kbd> ยกเลิก
+                    </div>
+                  </div>
+
+                  <div className="structure-toolbar">
+                    <div className="search-input-wrap structure-search-wrap">
+                      <input
+                        type="text"
+                        className="search-input mark-search"
+                        placeholder="ค้นหาข้อความในเอกสาร..."
+                        value={filterText}
+                        onChange={(e) => setFilterText(e.target.value)}
+                      />
+                      {filterText && (
+                        <button
+                          type="button"
+                          className="search-clear-btn"
+                          onClick={() => setFilterText("")}
+                          title="ล้างคำค้นหา"
+                          aria-label="ล้างคำค้นหา"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
                     {markedCount > 0 && (
-                      <button type="button" className="clear-marks-btn" onClick={clearAllMarks}>
-                        ล้างทั้งหมด
+                      <button type="button" className="structure-clear-btn" onClick={clearAllMarks}>
+                        ล้างการทำเครื่องหมาย
                       </button>
                     )}
                   </div>
 
-                  <div className="line-list panel">
-                    {visibleLines.length === 0 && (
+                  <div className="structure-line-list">
+                    {visibleLines.length === 0 ? (
                       <div className="empty-state">
                         <p className="empty-state-title">
                           ไม่พบข้อความที่ตรงกับ &quot;{filterText}&quot;
@@ -698,130 +756,211 @@ function UploadDocument() {
                           ล้างคำค้นหา
                         </button>
                       </div>
-                    )}
-                    {visibleLines.map((line) => {
-                      const level = levels[line.index] || 0;
-                      const indent = lineIndents[line.index] || 0;
-                      const rowClasses = [
-                        "line-row",
-                        line.kind === "table_row" ? "is-table" : "",
-                        level > 0 ? `is-heading-${level}` : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ");
-                      return (
-                        <div
-                          key={line.index}
-                          id={`line-${line.index}`}
-                          tabIndex={0}
-                          onKeyDown={(e) => handleLineKeyDown(e, line.index)}
-                          className={rowClasses}
-                          style={{ paddingLeft: 12 + Math.min(indent, 4) * 20 }}
-                        >
-                          <div className="h-picker">
-                            {[1, 2, 3].map((lvl) => (
-                              <button
-                                key={lvl}
-                                type="button"
-                                className={
-                                  level === lvl
-                                    ? `h-picker-btn active level-${lvl}`
-                                    : "h-picker-btn"
-                                }
-                                onClick={() =>
-                                  setLevelDirect(line.index, level === lvl ? 0 : lvl)
-                                }
-                                tabIndex={-1}
-                                title={
-                                  level === lvl
-                                    ? `ยกเลิก Heading ${lvl} (คลิกซ้ำ)`
-                                    : `ตั้งเป็นหัวข้อ Heading ${lvl}`
-                                }
-                              >
-                                H{lvl}
-                              </button>
-                            ))}
+                    ) : (
+                      visibleLines.map((line) => {
+                        const level = levels[line.index] || 0;
+                        const indent = lineIndents[line.index] || 0;
+                        const rowClasses = [
+                          "structure-line-row",
+                          line.kind === "table_row" ? "is-table" : "",
+                          level > 0 ? `is-heading-${level}` : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ");
+
+                        return (
+                          <div
+                            key={line.index}
+                            id={`line-${line.index}`}
+                            tabIndex={0}
+                            onKeyDown={(e) => handleLineKeyDown(e, line.index)}
+                            className={rowClasses}
+                            style={{ paddingLeft: 14 + Math.min(indent, 4) * 22 }}
+                          >
+                            <div className="structure-line-number">{line.index + 1}</div>
+
+                            <div className="structure-line-content">
+                              <span className="line-text">
+                                <HighlightedText text={line.text} query={filterText} />
+                              </span>
+                              {line.kind === "table_row" && (
+                                <span className="tag tag-category">ตาราง</span>
+                              )}
+                            </div>
+
+                            <div className="structure-heading-picker">
+                              {[1, 2, 3].map((lvl) => (
+                                <button
+                                  key={lvl}
+                                  type="button"
+                                  className={
+                                    level === lvl
+                                      ? `h-picker-btn active level-${lvl}`
+                                      : "h-picker-btn"
+                                  }
+                                  onClick={() => setLevelDirect(line.index, level === lvl ? 0 : lvl)}
+                                  tabIndex={-1}
+                                  title={level === lvl ? `ยกเลิก H${lvl}` : `ตั้งเป็น H${lvl}`}
+                                >
+                                  H{lvl}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                          {line.kind === "table_row" && (
-                            <span className="tag tag-category">ตาราง</span>
-                          )}
-                          <span className="line-text">
-                            <HighlightedText text={line.text} query={filterText} />
-                          </span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
-                </div>
+                </section>
 
-              {buildError && <p className="error-message">{buildError}</p>}
+                <aside className="structure-outline-card">
+                  <div className="structure-card-header">
+                    <div>
+                      <h3>โครงสร้างเอกสาร</h3>
+                      <span>{markedCount} หัวข้อที่เลือก</span>
+                    </div>
+                  </div>
 
-              <div className="mark-actions">
+                  <div className="structure-outline">
+                    {headingOutline.length === 0 ? (
+                      <div className="structure-outline-empty">
+                        <div>☰</div>
+                        <strong>ยังไม่มีหัวข้อ</strong>
+                        <span>เลือก H1, H2 หรือ H3 จากเนื้อหาด้านซ้าย</span>
+                      </div>
+                    ) : (
+                      headingOutline.map((item) => (
+                        <button
+                          type="button"
+                          key={item.index}
+                          className={`structure-outline-item level-${item.level}`}
+                          onClick={() => {
+                            const el = document.getElementById(`line-${item.index}`);
+                            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                            el?.focus();
+                          }}
+                        >
+                          <span className="outline-level">H{item.level}</span>
+                          <span>{item.text}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </aside>
+              </div>
+
+              {buildError && <div className="structure-error" role="alert">⚠️ {buildError}</div>}
+
+              <div className="structure-actions">
                 <button type="button" className="switch-page-btn" onClick={() => setStep("meta")}>
-                  &lt; ย้อนกลับ
+                  ← กลับไปข้อมูลเอกสาร
                 </button>
                 <button
                   type="button"
-                  className="upload-btn"
-                  disabled={isBuilding}
+                  className="upload-btn structure-primary-btn"
+                  disabled={isBuilding || markedCount === 0}
                   onClick={handleBuildChunks}
                 >
                   {isBuilding && <Spinner />}
-                  {isBuilding ? "กำลังสร้าง Chunk..." : "สร้าง Chunk และดูตัวอย่าง"}
+                  {isBuilding ? "กำลังสร้าง Chunk..." : "สร้าง Chunk และตรวจสอบ →"}
                 </button>
               </div>
-            </>
+            </div>
           )}
-
           {step === "preview" && (
-            <>
-              <p className="panel-title">
-                ตรวจสอบ chunk ที่ได้ ({chunks.length} chunk) ก่อนบันทึกจริงเข้าระบบ —
-                แก้ไขเนื้อหาได้โดยตรงในกล่องด้านล่าง (หัวข้อแก้ไม่ได้ตรงนี้ ถ้าต้องการ
-                เปลี่ยนหัวข้อให้กด &quot;แก้ไขการทำเครื่องหมาย&quot;)
-              </p>
+            <div className="review-page">
+              <div className="review-header">
+                <div>
+                  <p className="review-eyebrow">ขั้นตอนที่ 3 จาก 4</p>
+                  <h2>ตรวจสอบ Chunk</h2>
+                  <p>ตรวจสอบผลลัพธ์ก่อนบันทึกลงฐานความรู้ คุณยังแก้ไขเนื้อหาได้ในขั้นตอนนี้</p>
+                </div>
 
-              <div className="chunk-list">
+                <div className="review-summary">
+                  <div>
+                    <strong>{chunks.length}</strong>
+                    <span>Chunks</span>
+                  </div>
+                  <div>
+                    <strong>{chunkStats.characters.toLocaleString()}</strong>
+                    <span>ตัวอักษร</span>
+                  </div>
+                  <div className={chunkStats.empty > 0 ? "has-error" : "is-ok"}>
+                    <strong>{chunkStats.empty}</strong>
+                    <span>ว่าง</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="review-info">
+                <span>✓</span>
+                <p>
+                  หัวข้อถูกล็อกตามโครงสร้างที่คุณกำหนดไว้ หากต้องการเปลี่ยนหัวข้อ
+                  ให้ย้อนกลับไปที่ <strong>จัดโครงสร้างเอกสาร</strong>
+                </p>
+              </div>
+
+              <div className="review-list">
                 {chunks.map((c, i) => {
                   const heading = extractChunkHeading(c.parent_text, c.chunk_text);
+                  const isEmpty = !c.chunk_text.trim();
+
                   return (
-                    <div key={i} className="chunk-item">
-                      <div className="chunk-detail chunk-detail-static">
-                        <div className="chunk-preview-header">
-                          <span className="chunk-index-label">Chunk {i + 1}</span>
-                          {heading && <span className="chunk-heading-label">{heading}</span>}
+                    <article key={i} className={isEmpty ? "review-chunk is-invalid" : "review-chunk"}>
+                      <div className="review-chunk-header">
+                        <div className="review-chunk-title">
+                          <span className="review-chunk-number">CHUNK {i + 1}</span>
+                          {heading ? (
+                            <div className="review-heading">
+                              <span>หัวข้อ</span>
+                              <strong>{heading}</strong>
+                            </div>
+                          ) : (
+                            <span className="review-no-heading">ไม่มีหัวข้อ</span>
+                          )}
                         </div>
+                        <span className={isEmpty ? "review-status error" : "review-status"}>
+                          {isEmpty ? "ต้องแก้ไข" : "พร้อมบันทึก"}
+                        </span>
+                      </div>
+
+                      <div className="review-chunk-body">
+                        <label htmlFor={`chunk-${i}`}>เนื้อหา Chunk</label>
                         <textarea
+                          id={`chunk-${i}`}
                           className="chunk-edit-textarea"
                           value={c.chunk_text}
                           onChange={(e) => updateChunkBody(i, e.target.value)}
-                          rows={Math.min(Math.max(c.chunk_text.split("\n").length, 2), 14)}
+                          rows={Math.min(Math.max(c.chunk_text.split("\n").length + 1, 4), 14)}
                         />
+                        <div className="review-chunk-footer">
+                          <span>{c.chunk_text.length.toLocaleString()} ตัวอักษร</span>
+                          {isEmpty && <span className="review-error-text">กรุณาเติมเนื้อหาก่อนบันทึก</span>}
+                        </div>
                       </div>
-                    </div>
+                    </article>
                   );
                 })}
               </div>
 
-              {confirmError && <p className="error-message">{confirmError}</p>}
+              {confirmError && <div className="review-error" role="alert">⚠️ {confirmError}</div>}
 
-              <div className="mark-actions">
+              <div className="review-actions">
                 <button type="button" className="switch-page-btn" onClick={() => setStep("mark")}>
-                  &lt; แก้ไขการทำเครื่องหมาย
+                  ← กลับไปแก้โครงสร้าง
                 </button>
                 <button
                   type="button"
-                  className="upload-btn"
-                  disabled={isConfirming}
+                  className="upload-btn review-primary-btn"
+                  disabled={isConfirming || chunks.length === 0 || chunkStats.empty > 0}
                   onClick={handleConfirm}
                 >
                   {isConfirming && <Spinner />}
-                  {isConfirming ? "กำลังบันทึก..." : "ยืนยัน บันทึกเข้าระบบ"}
+                  {isConfirming ? "กำลังบันทึก..." : "ยืนยันและบันทึกเอกสาร →"}
                 </button>
               </div>
-            </>
+            </div>
           )}
-
           {step === "done" && (
             <div className="panel">
               <p>บันทึกเอกสารเรียบร้อยแล้ว ({chunks.length} chunk)</p>
