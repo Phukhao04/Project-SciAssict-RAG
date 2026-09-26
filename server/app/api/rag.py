@@ -72,7 +72,6 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
 
     # บันทึกทั้งคำถามและคำตอบลง messages อัตโนมัติ
     save_message(db, session_id, payload.user_id, "user", payload.question)
-    save_message(db, session_id, payload.user_id, "bot", answer)
 
     unique_sources = {}
     for chunk in chunks:
@@ -84,6 +83,20 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
         )
 
     sources = list(unique_sources.values())
+
+    source_payload = [
+        source.model_dump() if hasattr(source, "model_dump") else source.dict()
+        for source in sources
+    ]
+
+    save_message(
+        db,
+        session_id,
+        payload.user_id,
+        "bot",
+        answer,
+        sources=source_payload,
+    )
 
     return ChatResponse(answer=answer, sources=sources, session_id=session_id)
 
