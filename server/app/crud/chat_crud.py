@@ -1,3 +1,5 @@
+import json
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -34,7 +36,7 @@ def get_sessions_by_user(db: Session, user_id: int) -> list[dict]:
 
 def get_messages_by_session(db: Session, session_id: int) -> list[dict]:
     sql = text("""
-        SELECT message_id, sender_role, message_text, timestamp
+        SELECT message_id, sender_role, message_text, timestamp, sources_json
         FROM messages
         WHERE session_id = :session_id
         ORDER BY timestamp ASC
@@ -46,18 +48,21 @@ def get_messages_by_session(db: Session, session_id: int) -> list[dict]:
             "sender_role": r.sender_role,
             "message_text": r.message_text,
             "timestamp": r.timestamp,
-            "sources": [],
+            "sources": json.loads(r.sources_json) if r.sources_json else [],
         }
         for r in rows
     ]
 
 
 def save_message(
-    db: Session, session_id: int, user_id: int, sender_role: str, text_content: str
+    db: Session, session_id: int, user_id: int, sender_role: str, text_content: str,
+    sources: list[dict] | None = None,
 ):
     insert_sql = text("""
-        INSERT INTO messages (session_id, user_id, sender_role, message_text, timestamp)
-        VALUES (:session_id, :user_id, :sender_role, :message_text, NOW())
+        INSERT INTO messages
+        (session_id, user_id, sender_role, message_text, timestamp, sources_json)
+        VALUES
+        (:session_id, :user_id, :sender_role, :message_text, NOW(), :sources_json)
     """)
     db.execute(
         insert_sql,
@@ -66,6 +71,7 @@ def save_message(
             "user_id": user_id,
             "sender_role": sender_role,
             "message_text": text_content,
+            "sources_json": json.dumps(sources or [], ensure_ascii=False),
         },
     )
     db.commit()
