@@ -8,10 +8,10 @@ import AppConfig from "../../config/appConfig";
 import { authHeaders } from "../../utils/authHeaders";
 import { extractChunkHeading } from "../../utils/chunkHeading";
 import "./Admin.css";
+import "./DocumentChunks.css";
 
 const API_BASE_URL = AppConfig.apiBase;
 
-// wrapper: util คืน "" เมื่อไม่มี heading แต่โค้ดหน้านี้เช็ก `=== null` อยู่หลายจุด
 const extractHeadingPath = (parentText, chunkText) =>
   extractChunkHeading(parentText, chunkText) || null;
 
@@ -19,16 +19,13 @@ function DocumentChunks() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [view, setView] = useState("chunks");
-  const [pendingScrollId, setPendingScrollId] = useState(null);
   const [filterText, setFilterText] = useState("");
+  const [activeHeading, setActiveHeading] = useState(null);
 
   const [doc, setDoc] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // แก้ไขได้ทีละ chunk เท่านั้น (ไม่รองรับแก้พร้อมกันหลายอันพร้อมกัน
-  // เพื่อไม่ให้สับสนว่า draft ไหนยังไม่ได้บันทึก)
   const [editingChunkId, setEditingChunkId] = useState(null);
   const [draftText, setDraftText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -53,7 +50,6 @@ function DocumentChunks() {
   }, [id]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadDocument ตั้ง setState หลัง await เท่านั้น
     loadDocument();
   }, [loadDocument]);
 
@@ -68,6 +64,7 @@ function DocumentChunks() {
   const visibleChunks = useMemo(() => {
     const needle = filterText.trim().toLowerCase();
     if (!needle) return chunksWithHeading;
+
     return chunksWithHeading.filter(
       (c) =>
         c.chunk_text.toLowerCase().includes(needle) ||
@@ -76,30 +73,66 @@ function DocumentChunks() {
   }, [chunksWithHeading, filterText]);
 
   const outline = useMemo(() => {
-    const seen = new Set();
-    const items = [];
-    for (const c of chunksWithHeading) {
-      if (c.headingPath && !seen.has(c.headingPath)) {
-        seen.add(c.headingPath);
-        items.push({ heading: c.headingPath, chunkId: c.chunk_id });
+    const map = new Map();
+
+    for (const chunk of chunksWithHeading) {
+      if (!chunk.headingPath) continue;
+
+      if (!map.has(chunk.headingPath)) {
+        map.set(chunk.headingPath, {
+          heading: chunk.headingPath,
+          chunkId: chunk.chunk_id,
+          count: 0,
+        });
       }
+
+      map.get(chunk.headingPath).count += 1;
     }
-    return items;
+
+    return Array.from(map.values());
   }, [chunksWithHeading]);
 
-  useEffect(() => {
-    if (view === "chunks" && pendingScrollId !== null) {
-      const el = document.getElementById(`chunk-${pendingScrollId}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPendingScrollId(null);
-    }
-  }, [view, pendingScrollId]);
+  const headingGroups = useMemo(() => {
+    const groups = new Map();
 
-  const jumpToChunk = (chunkId) => {
-    setView("chunks");
-    setPendingScrollId(chunkId);
+    for (const chunk of visibleChunks) {
+      const key = chunk.headingPath || "ไม่มีหัวข้อ";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(chunk);
+    }
+
+    return Array.from(groups.entries()).map(([heading, chunks]) => ({
+      heading,
+      chunks,
+      firstChunkId: chunks[0]?.chunk_id,
+    }));
+  }, [visibleChunks]);
+
+  const jumpToHeading = (chunkId, heading) => {
+    const element = document.getElementById(`chunk-${chunkId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setActiveHeading(heading);
   };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const firstVisible = visibleChunks.find((chunk) => {
+        const el = document.getElementById(`chunk-${chunk.chunk_id}`);
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.top >= 80 && rect.top <= window.innerHeight * 0.45;
+      });
+
+      if (firstVisible?.headingPath) {
+        setActiveHeading(firstVisible.headingPath);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [visibleChunks]);
 
   const startEdit = (chunk) => {
     setEditingChunkId(chunk.chunk_id);
@@ -116,10 +149,12 @@ function DocumentChunks() {
 
   const saveEdit = async () => {
     if (isSaving) return;
+
     if (!draftText.trim()) {
       setSaveError("เนื้อหาต้องไม่ว่างเปล่า");
       return;
     }
+
     setIsSaving(true);
     setSaveError("");
 
@@ -132,10 +167,12 @@ function DocumentChunks() {
           body: JSON.stringify({ chunk_text: draftText }),
         }
       );
+
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.detail || "บันทึกไม่สำเร็จ กรุณาลองใหม่");
       }
+
       const updated = await res.json();
 
       setDoc((prev) => ({
@@ -146,6 +183,7 @@ function DocumentChunks() {
             : c
         ),
       }));
+
       setEditingChunkId(null);
       setDraftText("");
     } catch (err) {
@@ -159,7 +197,10 @@ function DocumentChunks() {
   if (isLoading) {
     return (
       <AdminLayout>
-        <p>กำลังโหลดข้อมูลเอกสาร...</p>
+        <div className="chunks-state">
+          <Spinner />
+          <p>กำลังโหลดรายละเอียดเอกสาร...</p>
+        </div>
       </AdminLayout>
     );
   }
@@ -167,209 +208,237 @@ function DocumentChunks() {
   if (loadError || !doc) {
     return (
       <AdminLayout>
-        <button className="back-link" onClick={() => navigate("/admin/documents")}>
-          &lt; กลับ
-        </button>
-        <p className="error-message">{loadError || "ไม่พบเอกสารนี้ในระบบ"}</p>
+        <div className="chunks-state chunks-state-error">
+          <div className="chunks-state-icon">!</div>
+          <h2>ไม่สามารถเปิดเอกสารได้</h2>
+          <p>{loadError || "ไม่พบเอกสารนี้ในระบบ"}</p>
+          <button type="button" className="chunks-primary-btn" onClick={() => navigate("/admin/documents")}>
+            ← กลับไปจัดการเอกสาร
+          </button>
+        </div>
       </AdminLayout>
     );
   }
 
   return (
     <AdminLayout>
-      <div className="chunks-page-header">
-        <button type="button" className="back-link" onClick={() => navigate("/admin/documents")}>
-          ← กลับไปจัดการเอกสาร
-        </button>
-        <div className="chunks-title-row">
-          <div>
-            <p className="chunks-eyebrow">รายละเอียดเอกสาร</p>
-            <h1 className="chunks-title">{doc.document_name}</h1>
-            <p className="chunks-subtitle">
-              {doc.category_name || "ไม่ระบุหมวดหมู่"} · {doc.chunks.length} Chunks
-            </p>
-          </div>
-          <span className="chunks-file-badge">{(doc.document_type || "file").replace(".", "").toUpperCase()}</span>
-        </div>
-      </div>
-
-      <div className="view-tabs">
-        <button
-          className={view === "full" ? "view-tab active" : "view-tab"}
-          onClick={() => setView("full")}
-        >
-          ไฟล์เต็ม
-        </button>
-        <button
-          className={view === "chunks" ? "view-tab active" : "view-tab"}
-          onClick={() => setView("chunks")}
-        >
-          Chunks ({doc.chunks.length})
-        </button>
-      </div>
-
-      <div className="chunks-toolbar">
-      <div className="search-input-wrap doc-search-wrap">
-        <input
-          type="text"
-          className="search-input mark-search"
-          placeholder="ค้นหาข้อความในเอกสาร..."
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-        />
-        {filterText && (
+      <div className="document-detail-page">
+        <header className="document-detail-header">
           <button
             type="button"
-            className="search-clear-btn"
-            onClick={() => setFilterText("")}
-            title="ล้างคำค้นหา"
-            aria-label="ล้างคำค้นหา"
+            className="document-detail-back"
+            onClick={() => navigate("/admin/documents")}
           >
-            ✕
+            ← เอกสารทั้งหมด
           </button>
-        )}
-      </div>
-      </div>
-      {filterText.trim() && view === "chunks" && (
-        <p className="filter-hint">
-          พบ {visibleChunks.length} จาก {chunksWithHeading.length} chunk
-        </p>
-      )}
 
-      {outline.length > 0 && (
-        <div className="outline-panel panel chunks-outline-panel">
-          <p className="panel-title">สารบัญเอกสาร ({outline.length} หัวข้อ)</p>
-          <ul className="outline-list">
-            {outline.map((item) => {
-              const depth = item.heading.split(" > ").length;
-              const label = item.heading.split(" > ").pop();
-              return (
-                <li
-                  key={item.chunkId}
-                  className="outline-item"
-                  style={{ paddingLeft: (depth - 1) * 16 }}
-                  onClick={() => jumpToChunk(item.chunkId)}
-                >
-                  {label}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      {view === "full" && (
-        <div className="full-doc-box">
-          <span className="tag tag-filename">
-            {doc.document_name}.{doc.document_type}
-          </span>
-          {chunksWithHeading.length === 0 ? (
-            <p>เอกสารนี้ยังไม่มี chunk ในระบบ</p>
-          ) : (
-            <div className="full-doc-structured">
-              {chunksWithHeading.map((c, i) => {
-                const prevHeading = chunksWithHeading[i - 1]?.headingPath ?? undefined;
-                const showHeading = c.headingPath !== prevHeading;
-                return (
-                  <div key={c.chunk_id} className="full-doc-section">
-                    {showHeading && (
-                      <div className="full-doc-heading">
-                        <HeadingBreadcrumb path={c.headingPath} />
-                      </div>
-                    )}
-                    <pre className="full-doc-text">
-                      <HighlightedText text={c.chunk_text} query={filterText} />
-                    </pre>
-                  </div>
-                );
-              })}
+          <div className="document-detail-heading">
+            <div className="document-detail-file-icon">
+              {(doc.document_type || "file").replace(".", "").toUpperCase()}
             </div>
-          )}
-        </div>
-      )}
-
-      {view === "chunks" && (
-        <div className="chunk-list">
-          {chunksWithHeading.length === 0 && <p>เอกสารนี้ยังไม่มี chunk ในระบบ</p>}
-          {chunksWithHeading.length > 0 && visibleChunks.length === 0 && (
-            <div className="empty-state">
-              <p className="empty-state-title">
-                ไม่พบข้อความที่ตรงกับ &quot;{filterText}&quot;
+            <div className="document-detail-title-wrap">
+              <p className="chunks-eyebrow">รายละเอียดเอกสาร</p>
+              <h1>{doc.document_name}</h1>
+              <p className="document-detail-description">
+                ดูโครงสร้างและเนื้อหาที่ถูกแบ่งสำหรับการค้นคืนข้อมูลของระบบ
               </p>
-              <button
-                type="button"
-                className="empty-state-clear-btn"
-                onClick={() => setFilterText("")}
-              >
-                ล้างคำค้นหา
-              </button>
             </div>
-          )}
+          </div>
 
-          {visibleChunks.map((chunk) => {
-            const isEditing = editingChunkId === chunk.chunk_id;
-            return (
-              <div key={chunk.chunk_id} id={`chunk-${chunk.chunk_id}`} className="chunk-item">
-                <div className="chunk-heading-row">
-                  <HeadingBreadcrumb path={chunk.headingPath} />
-                </div>
+          <div className="document-detail-meta">
+            <div className="document-meta-item">
+              <span>หมวดหมู่</span>
+              <strong>{doc.category_name || "ไม่ระบุหมวดหมู่"}</strong>
+            </div>
+            <div className="document-meta-item">
+              <span>ประเภทไฟล์</span>
+              <strong>{(doc.document_type || "file").replace(".", "").toUpperCase()}</strong>
+            </div>
+            <div className="document-meta-item">
+              <span>จำนวน Chunk</span>
+              <strong>{doc.chunks.length}</strong>
+            </div>
+            <div className="document-meta-item">
+              <span>หัวข้อ</span>
+              <strong>{outline.length}</strong>
+            </div>
+          </div>
+        </header>
 
-                <div className="chunk-card-header">
-                  <span className="tag tag-chunkid">chunk_{chunk.chunk_id}</span>
-                  {!isEditing && (
+        <section className="document-content-header">
+          <div>
+            <p className="document-content-eyebrow">DOCUMENT CONTENT</p>
+            <h2>เนื้อหาในฐานความรู้</h2>
+            <p>เนื้อหาด้านล่างคือ Chunk ที่ระบบใช้สำหรับค้นคืนและตอบคำถาม</p>
+          </div>
+
+          <div className="document-content-actions">
+            <div className="document-search">
+              <span aria-hidden="true">⌕</span>
+              <input
+                type="text"
+                placeholder="ค้นหาในเอกสาร..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                aria-label="ค้นหาในเอกสาร"
+              />
+              {filterText && (
+                <button
+                  type="button"
+                  onClick={() => setFilterText("")}
+                  aria-label="ล้างคำค้นหา"
+                  title="ล้างคำค้นหา"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {filterText.trim() && (
+          <div className="document-search-result">
+            พบ <strong>{visibleChunks.length}</strong> จาก {chunksWithHeading.length} Chunk
+          </div>
+        )}
+
+        <div className="document-workspace">
+          <aside className="document-outline">
+            <div className="document-outline-header">
+              <div>
+                <span>สารบัญ</span>
+                <strong>{outline.length} หัวข้อ</strong>
+              </div>
+            </div>
+
+            {outline.length === 0 ? (
+              <p className="document-outline-empty">เอกสารนี้ยังไม่มีโครงสร้างหัวข้อ</p>
+            ) : (
+              <nav aria-label="สารบัญเอกสาร">
+                {outline.map((item) => {
+                  const depth = item.heading.split(" > ").length;
+                  const label = item.heading.split(" > ").pop();
+
+                  return (
                     <button
                       type="button"
-                      className="chunk-edit-btn"
-                      onClick={() => startEdit(chunk)}
+                      key={item.heading}
+                      className={
+                        activeHeading === item.heading
+                          ? "document-outline-item active"
+                          : "document-outline-item"
+                      }
+                      style={{ paddingLeft: 12 + (depth - 1) * 14 }}
+                      onClick={() => jumpToHeading(item.chunkId, item.heading)}
                     >
-                      แก้ไข
+                      <span>{label}</span>
+                      <small>{item.count}</small>
                     </button>
-                  )}
+                  );
+                })}
+              </nav>
+            )}
+          </aside>
+
+          <main className="document-chunk-content">
+            {chunksWithHeading.length === 0 && (
+              <div className="document-empty">
+                <div className="document-empty-icon">∅</div>
+                <h3>ยังไม่มี Chunk</h3>
+                <p>เอกสารนี้ยังไม่มีเนื้อหาที่ถูกแบ่งเก็บในฐานความรู้</p>
+              </div>
+            )}
+
+            {chunksWithHeading.length > 0 && visibleChunks.length === 0 && (
+              <div className="document-empty">
+                <div className="document-empty-icon">⌕</div>
+                <h3>ไม่พบเนื้อหาที่ค้นหา</h3>
+                <p>ลองใช้คำค้นหาอื่น หรือดูเนื้อหาทั้งหมดอีกครั้ง</p>
+                <button type="button" onClick={() => setFilterText("")}>
+                  ล้างคำค้นหา
+                </button>
+              </div>
+            )}
+
+            {headingGroups.map((group) => (
+              <section
+                key={group.heading}
+                className="document-section"
+                id={group.firstChunkId ? `section-${group.firstChunkId}` : undefined}
+              >
+                <div className="document-section-heading">
+                  <div className="document-section-line" />
+                  <div>
+                    <HeadingBreadcrumb path={group.heading === "ไม่มีหัวข้อ" ? null : group.heading} />
+                    <p>{group.chunks.length} Chunk</p>
+                  </div>
                 </div>
 
-                <div className="chunk-detail-static">
-                  {isEditing ? (
-                    <>
-                      <textarea
-                        className="chunk-edit-textarea"
-                        value={draftText}
-                        onChange={(e) => setDraftText(e.target.value)}
-                        rows={Math.min(Math.max(draftText.split("\n").length, 3), 16)}
-                        disabled={isSaving}
-                        autoFocus
-                      />
-                      {saveError && <p className="error-message">{saveError}</p>}
-                      <div className="chunk-edit-actions">
-                        <button
-                          type="button"
-                          className="switch-page-btn"
-                          onClick={cancelEdit}
-                          disabled={isSaving}
-                        >
-                          ยกเลิก
-                        </button>
-                        <button
-                          type="button"
-                          className="upload-btn chunk-save-btn"
-                          onClick={saveEdit}
-                          disabled={isSaving}
-                        >
-                          {isSaving && <Spinner />}
-                          {isSaving ? "กำลังบันทึก..." : "บันทึก"}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <pre className="full-doc-text">
-                      <HighlightedText text={chunk.chunk_text} query={filterText} />
-                    </pre>
-                  )}
+                <div className="document-chunk-list">
+                  {group.chunks.map((chunk, index) => {
+                    const isEditing = editingChunkId === chunk.chunk_id;
+
+                    return (
+                      <article
+                        key={chunk.chunk_id}
+                        id={`chunk-${chunk.chunk_id}`}
+                        className={isEditing ? "document-chunk-card editing" : "document-chunk-card"}
+                      >
+                        <div className="document-chunk-top">
+                          <div className="document-chunk-number">
+                            <span>CHUNK</span>
+                            <strong>{index + 1}</strong>
+                          </div>
+                          <span className="document-chunk-id">#{chunk.chunk_id}</span>
+
+                          {!isEditing && (
+                            <button
+                              type="button"
+                              className="document-edit-btn"
+                              onClick={() => startEdit(chunk)}
+                            >
+                              ✎ แก้ไข
+                            </button>
+                          )}
+                        </div>
+
+                        {isEditing ? (
+                          <div className="document-editor">
+                            <textarea
+                              value={draftText}
+                              onChange={(e) => setDraftText(e.target.value)}
+                              disabled={isSaving}
+                              autoFocus
+                              rows={Math.min(Math.max(draftText.split("\n").length, 6), 18)}
+                            />
+                            {saveError && <p className="document-save-error">{saveError}</p>}
+                            <div className="document-editor-footer">
+                              <span>{draftText.length.toLocaleString()} ตัวอักษร</span>
+                              <div>
+                                <button type="button" className="document-cancel-btn" onClick={cancelEdit} disabled={isSaving}>
+                                  ยกเลิก
+                                </button>
+                                <button type="button" className="document-save-btn" onClick={saveEdit} disabled={isSaving}>
+                                  {isSaving && <Spinner />}
+                                  {isSaving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="document-chunk-text">
+                            <HighlightedText text={chunk.chunk_text} query={filterText} />
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
-              </div>
-            );
-          })}
+              </section>
+            ))}
+          </main>
         </div>
-      )}
+      </div>
     </AdminLayout>
   );
 }
