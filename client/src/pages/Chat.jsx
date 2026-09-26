@@ -205,46 +205,28 @@ function Chat() {
         ) : (
           <div className="messages">
             {chatHistory.map((msg, i) => (
-              <div key={i} className={`row ${msg.role === 'user' ? 'user' : ''}`}>
-                {msg.role !== 'user' && (
-                  <div className="avatar bot"><Atom size={14} color="#FFD400" /></div>
-                )}
-                <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
-                  <div className="message-text">{msg.text}</div>
-                  {msg.role !== 'user' &&
-                    !msg.isError &&
-                    msg.sources?.length > 0 && (
-                      <div className="message-tools">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedSources((prev) => ({ ...prev, [i]: !prev[i] }))
-                          }
-                        >
-                          แสดงแหล่งอ้างอิงของคำตอบ (Source) {expandedSources[i] ? '⌃' : '⌄'}
-                        </button>
-                      </div>
-                    )}
-                  {msg.role !== 'user' && !msg.isError && expandedSources[i] && msg.sources?.length > 0 && (
-                    <div className="citations">
-                      <div className="citations-label">อ้างอิงจากเอกสาร</div>
-                      <div className="citation-list">
-                        {msg.sources.map((source, sourceIndex) => (
-                          <div className="citation-wrap" key={sourceIndex}>
-                            <div className="citation-chip">
-                              <span className="citation-doc">{source.document_name || source.doc_name || 'เอกสารอ้างอิง'}</span>
-                              {(source.chunk_id || source.id) && <span className="citation-id">#{source.chunk_id || source.id}</span>}
-                            </div>
-                            {source.chunk_text && <p className="citation-snippet">{source.chunk_text}</p>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {msg.role === 'user' && <div className="avatar user">{avatarLetter}</div>}
-              </div>
-            ))}
+  <div key={i} className={`row ${msg.role === 'user' ? 'user' : ''}`}>
+    {msg.role !== 'user' && (
+      <div className="avatar bot">
+        <Atom size={14} color="#FFD400" />
+      </div>
+    )}
+
+    <div
+      className={
+        msg.role === 'user'
+          ? 'bubble-user'
+          : `bubble-bot${msg.isError ? ' bubble-error' : ''}`
+      }
+    >
+      <div className="message-text">{msg.text}</div>
+    </div>
+
+    {msg.role === 'user' && (
+      <div className="avatar user">{avatarLetter}</div>
+    )}
+  </div>
+))}
             {isSending && (
               <div className="row">
                 <div className="avatar bot"><Atom size={14} color="#FFD400" /></div>
@@ -258,7 +240,6 @@ function Chat() {
             <div ref={messagesEndRef} />
           </div>
         )}
-
         <div className="input-zone">
           <form className="input-bar" onSubmit={handleSend}>
             <input
