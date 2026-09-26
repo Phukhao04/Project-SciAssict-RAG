@@ -1,6 +1,7 @@
 import logging
+from uuid import uuid4
 
-from anthropic import Anthropic
+import httpx
 from sqlalchemy.orm import Session
 
 from .retrieval import retrieve
@@ -9,13 +10,10 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-client = Anthropic(
-    base_url="https://ai.psu.blue/anthropic",
-    api_key=settings.dotblue_api_key,
-)
+ANTHROPIC_BASE_URL = "https://ai.psu.blue/anthropic"
+OPENAI_BASE_URL = "https://ai.psu.blue/openai"
 
 def _build_context_block(index: int, chunk) -> str:
-    """สร้าง <context> block เดียว จาก 1 chunk ที่ retrieve มาได้ ใช้ parent_text"""
     return (
         f'<context index="{index}" source="{chunk.document_name}">\n'
         f"{chunk.parent_text}\n"
@@ -24,7 +22,6 @@ def _build_context_block(index: int, chunk) -> str:
 
 
 def _build_prompt(question: str, retrieved: list) -> str:
-    """ประกอบ context blocks + คำถาม เข้าเป็น prompt เดียว"""
     context = "\n\n".join(
         _build_context_block(i, chunk) for i, chunk in enumerate(retrieved, start=1)
     )
@@ -40,6 +37,78 @@ def _build_prompt(question: str, retrieved: list) -> str:
 Answer the question using only the information inside <context_documents>.
 If the answer is not there, respond exactly: "ไม่พบข้อมูลนี้ในระบบ"
 """
+
+
+def _generate_with_anthropic(prompt: str, model: str) -> str:
+    # The PSU gateway currently requires conversationId even though the
+    # standard Anthropic Messages API does not expose it as a normal field.
+    # Send the request directly so conversationId is present at the top level.
+    conversation_id = str(uuid4())
+
+    response = httpx.post(
+        f"{ANTHROPIC_BASE_URL}/v1/messages",
+        headers={
+            "x-api-key": settings.dotblue_api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "system": SYSTEM_PROMPT,
+            "max_tokens": 1024,
+            "messages": [{"role": "user", "content": prompt}],
+            "conversationId": conversation_id,
+        },
+        timeout=90.0,
+    )
+    response.raise_for_status()
+
+    data = response.json()
+    content = data.get("content") or []
+    if not content:
+        raise RuntimeError(f"LLM gateway returned no content: {data}")
+
+    answer = content[0].get("text")
+    if not answer:
+        raise RuntimeError(f"LLM gateway returned empty content: {data}")
+
+    return answer.strip()
+
+
+def _generate_with_openai_compatible(prompt: str, model: str) -> str:
+    # Fallback for the same PSU gateway when its Anthropic adapter is unavailable.
+    # The endpoint is OpenAI-compatible and uses the same dotBLUE API key.
+    conversation_id = str(uuid4())
+
+    response = httpx.post(
+        f"{OPENAI_BASE_URL}/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {settings.dotblue_api_key}",
+            "Content-Type": "application/json",
+            "X-Conversation-Id": conversation_id,
+        },
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": 1024,
+        },
+        timeout=90.0,
+    )
+    response.raise_for_status()
+
+    data = response.json()
+    choices = data.get("choices") or []
+    if not choices:
+        raise RuntimeError(f"LLM gateway returned no choices: {data}")
+
+    content = choices[0].get("message", {}).get("content")
+    if not content:
+        raise RuntimeError(f"LLM gateway returned an empty answer: {data}")
+
+    return content.strip()
 
 
 def generate_answer(
@@ -59,14 +128,14 @@ def generate_answer(
     logger.debug("[llm] prompt (%s):\n%s", PROMPT_VERSION, prompt)
 
     try:
-        response = client.messages.create(
-            model=model,
-            system=SYSTEM_PROMPT,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response.content[0].text.strip()
+        return _generate_with_anthropic(prompt, model)
 
     except Exception:
-        logger.exception("[llm] เรียก LLM ไม่สำเร็จ")
-        return "ขออภัย ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง"
+        logger.exception("[llm] Anthropic gateway failed; trying OpenAI-compatible fallback")
+
+        try:
+            return _generate_with_openai_compatible(prompt, model)
+
+        except Exception:
+            logger.exception("[llm] OpenAI-compatible gateway fallback failed")
+            return "ขออภัย ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง"
