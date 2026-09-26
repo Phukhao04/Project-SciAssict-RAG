@@ -99,16 +99,26 @@ def _generate_with_openai_compatible(prompt: str, model: str) -> str:
     )
     response.raise_for_status()
 
-    data = response.json()
-    choices = data.get("choices") or []
-    if not choices:
-        raise RuntimeError(f"LLM gateway returned no choices: {data}")
+    # The PSU OpenAI-compatible endpoint currently returns the generated
+    # answer as plain text rather than an OpenAI JSON envelope.
+    content_type = response.headers.get("content-type", "").lower()
+    if "application/json" in content_type:
+        data = response.json()
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError(f"LLM gateway returned no choices: {data}")
 
-    content = choices[0].get("message", {}).get("content")
+        content = choices[0].get("message", {}).get("content")
+        if not content:
+            raise RuntimeError(f"LLM gateway returned an empty answer: {data}")
+
+        return content.strip()
+
+    content = response.text.strip()
     if not content:
-        raise RuntimeError(f"LLM gateway returned an empty answer: {data}")
+        raise RuntimeError("LLM gateway returned an empty response")
 
-    return content.strip()
+    return content
 
 
 def generate_answer(
