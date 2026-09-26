@@ -13,3 +13,4 @@ class MessageResponse(BaseModel):
     sender_role: str
     message_text: str
     timestamp: datetime
+    sources: list = []

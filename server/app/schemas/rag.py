@@ -15,9 +15,15 @@ class ChatRequest(BaseModel):
     session_id: int | None = None
 
 
+class ChatSource(BaseModel):
+    document_name: str
+    chunk_id: int
+    chunk_text: str
+
+
 class ChatResponse(BaseModel):
     answer: str
-    sources: list[str] = Field(default_factory=list)
+    sources: list[ChatSource] = Field(default_factory=list)
     session_id: int
 
 
