@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
+import AppConfig from '../config/appConfig'
 import './Chat.css'
 
 const BRANCH_ICONS = [
@@ -211,6 +212,38 @@ function Chat() {
                 )}
                 <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
                   {msg.text}
+                  {msg.role !== 'user' && !msg.isError && msg.sources?.length > 0 && (
+                    <div className="sources">
+                      <div className="sources-label">แหล่งที่มาของข้อมูล</div>
+                      <div className="source-list">
+                        {msg.sources.map((source) => (
+                          <div className="source-item" key={source.document_id}>
+                            <a
+                              className="source-file"
+                              href={source.download_url?.startsWith('http')
+                                ? source.download_url
+                                : `${AppConfig.apiBase}${source.download_url || ''}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                            >
+                              📄 {source.file_name}
+                            </a>
+                            {source.source_url && (
+                              <a
+                                className="source-web"
+                                href={source.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                🌐 หน้าเว็บต้นทาง
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {msg.role === 'user' && <div className="avatar user">{avatarLetter}</div>}
               </div>
