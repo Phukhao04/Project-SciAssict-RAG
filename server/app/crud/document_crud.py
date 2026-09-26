@@ -109,7 +109,7 @@ def delete_document(db: Session, document_id: int) -> bool:
     cascade ของ DB ตรงๆ จนกว่าจะแก้ constraint ให้ถูก ลบเองด้วยโค้ดชัวร์กว่า
     """
     exists = db.execute(
-        text("SELECT 1 FROM document WHERE document_id = :id"),
+        text("SELECT file_path FROM document WHERE document_id = :id"),
         {"id": document_id},
     ).first()
     if exists is None:
@@ -124,6 +124,14 @@ def delete_document(db: Session, document_id: int) -> bool:
         {"id": document_id},
     )
     db.commit()
+
+    if exists.file_path:
+        import os
+        try:
+            os.remove(exists.file_path)
+        except OSError:
+            pass
+
     return True
 
 
