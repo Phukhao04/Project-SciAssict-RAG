@@ -5,6 +5,7 @@ from app.db.session import get_db
 from app.schemas.rag import (
     ChatRequest,
     ChatResponse,
+    ChatSource,
     IngestResponse,
     CategoryResponse,
     CategoryCreateRequest,
@@ -73,7 +74,15 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     save_message(db, session_id, payload.user_id, "user", payload.question)
     save_message(db, session_id, payload.user_id, "bot", answer)
 
-    sources = list({c.document_name for c in chunks})
+    sources = [
+        ChatSource(
+            document_name=chunk.document_name,
+            chunk_id=chunk.chunk_id,
+            chunk_text=chunk.chunk_text,
+        )
+        for chunk in chunks
+    ]
+
     return ChatResponse(answer=answer, sources=sources, session_id=session_id)
 
 
