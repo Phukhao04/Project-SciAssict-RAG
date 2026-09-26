@@ -12,6 +12,7 @@ import {
   Dna,
   Cpu,
   HeartPulse,
+  FileText,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
@@ -35,6 +36,9 @@ function Chat() {
   const [isSending, setIsSending] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  // เก็บ key ของ citation chip ที่ถูกกดขยายอยู่ (key = "messageIndex-sourceIndex")
+  // ใช้ Set เพราะแต่ละข้อความอาจมีหลาย source และผู้ใช้อาจเปิดดูพร้อมกันได้หลายอัน
+  const [expandedCitations, setExpandedCitations] = useState(new Set())
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -49,9 +53,22 @@ function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory, isSending])
 
+  const toggleCitation = (key) => {
+    setExpandedCitations((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
   const handleSessionClick = async (sessionId) => {
     setActiveSessionId(sessionId)
     setHistoryOpen(false)
+    setExpandedCitations(new Set())
     const messages = await getSessionMessages(sessionId)
     setChatHistory(
       messages.map((m) => ({ role: m.sender_role, text: m.message_text, sources: m.sources }))
@@ -103,6 +120,7 @@ function Chat() {
     setMessage('')
     setActiveSessionId(null)
     setHistoryOpen(false)
+    setExpandedCitations(new Set())
     inputRef.current?.focus()
   }
 
@@ -211,6 +229,34 @@ function Chat() {
                 )}
                 <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
                   {msg.text}
+
+                  {msg.role !== 'user' && !msg.isError && msg.sources?.length > 0 && (
+                    <div className="citations">
+                      <div className="citations-label">แหล่งอ้างอิง</div>
+                      <div className="citation-list">
+                        {msg.sources.map((src, si) => {
+                          const key = `${i}-${si}`
+                          const isOpen = expandedCitations.has(key)
+                          return (
+                            <div className="citation-wrap" key={key}>
+                              <div
+                                className="citation-chip"
+                                onClick={() => toggleCitation(key)}
+                                title={src.document_name}
+                              >
+                                <FileText size={12} />
+                                <span className="citation-doc">{src.document_name}</span>
+                                <span className="citation-id">#{src.chunk_id}</span>
+                              </div>
+                              {isOpen && (
+                                <p className="citation-snippet">{src.chunk_text}</p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {msg.role === 'user' && <div className="avatar user">{avatarLetter}</div>}
               </div>
