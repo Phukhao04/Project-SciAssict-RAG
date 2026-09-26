@@ -2,7 +2,6 @@ import logging
 from uuid import uuid4
 
 import httpx
-from anthropic import Anthropic
 from sqlalchemy.orm import Session
 
 from .retrieval import retrieve
@@ -13,12 +12,6 @@ logger = logging.getLogger(__name__)
 
 ANTHROPIC_BASE_URL = "https://ai.psu.blue/anthropic"
 OPENAI_BASE_URL = "https://ai.psu.blue/openai"
-
-client = Anthropic(
-    base_url=ANTHROPIC_BASE_URL,
-    api_key=settings.dotblue_api_key,
-)
-
 
 def _build_context_block(index: int, chunk) -> str:
     return (
@@ -47,18 +40,39 @@ If the answer is not there, respond exactly: "ไม่พบข้อมูล�
 
 
 def _generate_with_anthropic(prompt: str, model: str) -> str:
-    # ai.psu.blue currently expects a conversation id in its gateway flow.
-    # Sending one explicitly also keeps every request independent.
+    # The PSU gateway currently requires conversationId even though the
+    # standard Anthropic Messages API does not expose it as a normal field.
+    # Send the request directly so conversationId is present at the top level.
     conversation_id = str(uuid4())
 
-    response = client.messages.create(
-        model=model,
-        system=SYSTEM_PROMPT,
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
-        extra_body={"conversationId": conversation_id},
+    response = httpx.post(
+        f"{ANTHROPIC_BASE_URL}/v1/messages",
+        headers={
+            "x-api-key": settings.dotblue_api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "system": SYSTEM_PROMPT,
+            "max_tokens": 1024,
+            "messages": [{"role": "user", "content": prompt}],
+            "conversationId": conversation_id,
+        },
+        timeout=90.0,
     )
-    return response.content[0].text.strip()
+    response.raise_for_status()
+
+    data = response.json()
+    content = data.get("content") or []
+    if not content:
+        raise RuntimeError(f"LLM gateway returned no content: {data}")
+
+    answer = content[0].get("text")
+    if not answer:
+        raise RuntimeError(f"LLM gateway returned empty content: {data}")
+
+    return answer.strip()
 
 
 def _generate_with_openai_compatible(prompt: str, model: str) -> str:
