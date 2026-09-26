@@ -35,10 +35,7 @@ function Chat() {
   const [isSending, setIsSending] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [expandedSources, setExpandedSources] = useState({})
-  const [showScrollButton, setShowScrollButton] = useState(false)
 
-  const messagesRef = useRef(null)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -51,21 +48,6 @@ function Chat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory, isSending])
-
-  useEffect(() => {
-    const el = messagesRef.current
-    if (!el) return
-    const handleScroll = () => {
-      const distance = el.scrollHeight - el.scrollTop - el.clientHeight
-      setShowScrollButton(distance > 260)
-    }
-    el.addEventListener('scroll', handleScroll, { passive: true })
-    return () => el.removeEventListener('scroll', handleScroll)
-  }, [chatHistory.length])
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
 
   const handleSessionClick = async (sessionId) => {
     setActiveSessionId(sessionId)
@@ -130,7 +112,6 @@ function Chat() {
   }
 
   const hasMessages = chatHistory.length > 0
-
   const avatarLetter = user?.username ? user.username[0].toUpperCase() : 'U'
   const isAdmin = user?.role_id === 'R01'
 
@@ -219,10 +200,10 @@ function Chat() {
               ))}
             </div>
             <h1>สวัสดี พร้อมตอบทุกคำถามคณะวิทย์</h1>
-            <p>ถามเรื่องหลักสูตร อาจารย์ รายวิชา หรือขั้นตอนต่างๆ ได้เลย คำตอบอ้างอิงจากเอกสารจริงของคณะ</p>
+            <p>ถามเรื่องหลักสูตร อาจารย์ รายวิชา หรือขั้นตอนต่างๆ ได้เลย คำตอบทุกอันอ้างอิงจากเอกสารจริงของคณะ</p>
           </div>
         ) : (
-          <div className="messages" ref={messagesRef}>
+          <div className="messages">
             {chatHistory.map((msg, i) => (
               <div key={i} className={`row ${msg.role === 'user' ? 'user' : ''}`}>
                 {msg.role !== 'user' && (
@@ -230,21 +211,20 @@ function Chat() {
                 )}
                 <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
                   <div className="message-text">{msg.text}</div>
-                  {msg.role !== 'user' && !msg.isError && msg.sources?.length > 0 && (
-                    <div className="message-tools">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedSources((prev) => ({
-                            ...prev,
-                            [i]: !prev[i],
-                          }))
-                        }
-                      >
-                        แสดงแหล่งอ้างอิงของคำตอบ (Source) {expandedSources[i] ? '⌃' : '⌄'}
-                      </button>
-                    </div>
-                  )}
+                  {msg.role !== 'user' &&
+                    !msg.isError &&
+                    msg.sources?.length > 0 && (
+                      <div className="message-tools">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedSources((prev) => ({ ...prev, [i]: !prev[i] }))
+                          }
+                        >
+                          แสดงแหล่งอ้างอิงของคำตอบ (Source) {expandedSources[i] ? '⌃' : '⌄'}
+                        </button>
+                      </div>
+                    )}
                   {msg.role !== 'user' && !msg.isError && expandedSources[i] && msg.sources?.length > 0 && (
                     <div className="citations">
                       <div className="citations-label">อ้างอิงจากเอกสาร</div>
@@ -276,9 +256,6 @@ function Chat() {
               </div>
             )}
             <div ref={messagesEndRef} />
-            {showScrollButton && (
-              <button type="button" className="scroll-bottom-btn" onClick={scrollToBottom} aria-label="เลื่อนไปล่าสุด">↓ ข้อความล่าสุด</button>
-            )}
           </div>
         )}
 
