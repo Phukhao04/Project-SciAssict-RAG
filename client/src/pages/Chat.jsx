@@ -230,18 +230,20 @@ function Chat() {
                 )}
                 <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
                   <div className="message-text">{msg.text}</div>
-                  {msg.role !== 'user' && !msg.isError && (
-                    {msg.sources?.length > 0 && (
-                    <div className="message-tools">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedSources((prev) => ({ ...prev, [i]: !prev[i] }))}
-                      >
-                        แสดงแหล่งอ้างอิงของคำตอบ (Source) {expandedSources[i] ? '⌃' : '⌄'}
-                      </button>
-                    </div>
-                  )}
-                  )}
+                  {msg.role !== 'user' &&
+                    !msg.isError &&
+                    msg.sources?.length > 0 && (
+                      <div className="message-tools">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedSources((prev) => ({ ...prev, [i]: !prev[i] }))
+                          }
+                        >
+                          แสดงแหล่งอ้างอิงของคำตอบ (Source) {expandedSources[i] ? '⌃' : '⌄'}
+                        </button>
+                      </div>
+                    )}
                   {msg.role !== 'user' && !msg.isError && expandedSources[i] && msg.sources?.length > 0 && (
                     <div className="citations">
                       <div className="citations-label">อ้างอิงจากเอกสาร</div>
