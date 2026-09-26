@@ -127,8 +127,11 @@ def delete_document(db: Session, document_id: int) -> bool:
 
     if exists.file_path:
         import os
+        from pathlib import Path
+
+        base_dir = Path(__file__).resolve().parents[2]
         try:
-            os.remove(exists.file_path)
+            os.remove(base_dir / exists.file_path)
         except OSError:
             pass
 
