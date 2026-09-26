@@ -46,6 +46,7 @@ def get_messages_by_session(db: Session, session_id: int) -> list[dict]:
             "sender_role": r.sender_role,
             "message_text": r.message_text,
             "timestamp": r.timestamp,
+            "sources": [],
         }
         for r in rows
     ]
@@ -68,7 +69,8 @@ def save_message(
         },
     )
     db.commit()
-    
+
+
 def get_session_owner(db: Session, session_id: int) -> int | None:
     """คืน user_id เจ้าของ session นี้ ใช้เช็คสิทธิ์ก่อนให้เข้าถึงข้อความในนั้น"""
     sql = text("SELECT user_id FROM chatsession WHERE session_id = :session_id")
