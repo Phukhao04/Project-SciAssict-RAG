@@ -82,7 +82,7 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
             download_url=f"/api/rag/documents/{chunk.document_id}/download",
         )
 
-    sources = list(unique_sources.values())
+    sources = list(unique_sources.values())[:1]
 
     source_payload = [
         source.model_dump() if hasattr(source, "model_dump") else source.dict()
