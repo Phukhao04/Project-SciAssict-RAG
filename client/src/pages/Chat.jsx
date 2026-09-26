@@ -12,7 +12,6 @@ import {
   Dna,
   Cpu,
   HeartPulse,
-  FileText,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
@@ -37,9 +36,6 @@ function Chat() {
   const [isSending, setIsSending] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  // เก็บ key ของ citation chip ที่ถูกกดขยายอยู่ (key = "messageIndex-sourceIndex")
-  // ใช้ Set เพราะแต่ละข้อความอาจมีหลาย source และผู้ใช้อาจเปิดดูพร้อมกันได้หลายอัน
-  const [expandedCitations, setExpandedCitations] = useState(new Set())
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -54,22 +50,9 @@ function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory, isSending])
 
-  const toggleCitation = (key) => {
-    setExpandedCitations((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-      return next
-    })
-  }
-
   const handleSessionClick = async (sessionId) => {
     setActiveSessionId(sessionId)
     setHistoryOpen(false)
-    setExpandedCitations(new Set())
     const messages = await getSessionMessages(sessionId)
     setChatHistory(
       messages.map((m) => ({ role: m.sender_role, text: m.message_text, sources: m.sources }))
@@ -121,7 +104,6 @@ function Chat() {
     setMessage('')
     setActiveSessionId(null)
     setHistoryOpen(false)
-    setExpandedCitations(new Set())
     inputRef.current?.focus()
   }
 
@@ -230,6 +212,38 @@ function Chat() {
                 )}
                 <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
                   {msg.text}
+                  {msg.role !== 'user' && !msg.isError && msg.sources?.length > 0 && (
+                    <div className="sources">
+                      <div className="sources-label">แหล่งที่มาของข้อมูล</div>
+                      <div className="source-list">
+                        {msg.sources.map((source) => (
+                          <div className="source-item" key={source.document_id}>
+                            <a
+                              className="source-file"
+                              href={source.download_url?.startsWith('http')
+                                ? source.download_url
+                                : `${AppConfig.apiBase}${source.download_url || ''}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                            >
+                              📄 {source.file_name}
+                            </a>
+                            {source.source_url && (
+                              <a
+                                className="source-web"
+                                href={source.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                🌐 หน้าเว็บต้นทาง
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {msg.role === 'user' && <div className="avatar user">{avatarLetter}</div>}
               </div>
