@@ -16,9 +16,10 @@ class ChatRequest(BaseModel):
 
 
 class ChatSource(BaseModel):
-    document_name: str
-    chunk_id: int
-    chunk_text: str
+    document_id: int
+    file_name: str
+    source_url: str | None = None
+    download_url: str
 
 
 class ChatResponse(BaseModel):

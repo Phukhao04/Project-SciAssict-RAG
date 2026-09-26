@@ -74,14 +74,16 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     save_message(db, session_id, payload.user_id, "user", payload.question)
     save_message(db, session_id, payload.user_id, "bot", answer)
 
-    sources = [
-        ChatSource(
-            document_name=chunk.document_name,
-            chunk_id=chunk.chunk_id,
-            chunk_text=chunk.chunk_text,
+    unique_sources = {}
+    for chunk in chunks:
+        unique_sources[chunk.document_id] = ChatSource(
+            document_id=chunk.document_id,
+            file_name=chunk.file_name or chunk.document_name,
+            source_url=chunk.source_url,
+            download_url=f"/api/rag/documents/{chunk.document_id}/download",
         )
-        for chunk in chunks
-    ]
+
+    sources = list(unique_sources.values())
 
     return ChatResponse(answer=answer, sources=sources, session_id=session_id)
 

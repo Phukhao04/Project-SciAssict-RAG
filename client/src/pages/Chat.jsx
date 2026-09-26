@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { chatRequest, getSessions, getSessionMessages } from '../utils/ragService'
+import AppConfig from '../config/appConfig'
 import './Chat.css'
 
 const BRANCH_ICONS = [
@@ -229,34 +230,6 @@ function Chat() {
                 )}
                 <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
                   {msg.text}
-
-                  {msg.role !== 'user' && !msg.isError && msg.sources?.length > 0 && (
-                    <div className="citations">
-                      <div className="citations-label">แหล่งอ้างอิง</div>
-                      <div className="citation-list">
-                        {msg.sources.map((src, si) => {
-                          const key = `${i}-${si}`
-                          const isOpen = expandedCitations.has(key)
-                          return (
-                            <div className="citation-wrap" key={key}>
-                              <div
-                                className="citation-chip"
-                                onClick={() => toggleCitation(key)}
-                                title={src.document_name}
-                              >
-                                <FileText size={12} />
-                                <span className="citation-doc">{src.document_name}</span>
-                                <span className="citation-id">#{src.chunk_id}</span>
-                              </div>
-                              {isOpen && (
-                                <p className="citation-snippet">{src.chunk_text}</p>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
                 {msg.role === 'user' && <div className="avatar user">{avatarLetter}</div>}
               </div>

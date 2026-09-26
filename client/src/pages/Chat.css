@@ -510,3 +510,59 @@
 .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .disclaimer { text-align: center; font-size: 10.5px; color: #b3b1c4; margin-top: 8px; }
+.sources {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.sources-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.source-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.source-file,
+.source-web {
+  font-size: 11.5px;
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 6px 9px;
+}
+
+.source-file {
+  color: var(--navy);
+  background: var(--cream);
+  border: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.source-file:hover {
+  border-color: var(--navy);
+}
+
+.source-web {
+  color: #5d5f78;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
+.source-web:hover {
+  color: var(--navy);
+  border-color: var(--navy);
+}
+

@@ -23,14 +23,19 @@ def _insert_document_row(
     category_id: int,
     user_id: int,
     description: str | None,
+    source_url: str | None = None,
+    file_name: str | None = None,
+    file_path: str | None = None,
 ) -> int:
     """Insert แถวใน `document` แล้วคืน document_id ที่ได้
     เรียกจาก manual_ingest.py -> confirm_manual_ingest()"""
     insert_doc_sql = text("""
         INSERT INTO document
-        (document_name, document_type, category_id, user_id, upload_date, description)
+        (document_name, document_type, category_id, user_id, upload_date, description,
+         source_url, file_name, file_path)
         VALUES
-        (:document_name, :document_type, :category_id, :user_id, NOW(), :description)
+        (:document_name, :document_type, :category_id, :user_id, NOW(), :description,
+         :source_url, :file_name, :file_path)
         """)
 
     result = db.execute(
@@ -41,6 +46,9 @@ def _insert_document_row(
             "category_id": category_id,
             "user_id": user_id,
             "description": description,
+            "source_url": source_url,
+            "file_name": file_name,
+            "file_path": file_path,
         },
     )
     document_id = result.lastrowid

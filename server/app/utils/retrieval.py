@@ -22,6 +22,8 @@ class RetrievedChunk:
     parent_text: str
     document_id: int
     document_name: str
+    file_name: str | None
+    source_url: str | None
     distance: float
     match_type: str = "vector"  # "vector" = มาจาก similarity search ตรงๆ, "sibling" = ถูกดึงมาเสริมเพราะ heading เดียวกันกับ chunk ที่ match
 
@@ -79,6 +81,8 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
             dc.parent_text,
             dc.document_id,
             d.document_name,
+            d.file_name,
+            d.source_url,
             vec_cosine_distance(dc.embedding_vector, :query_embedding) AS distance
         FROM document_chunk dc
         JOIN document d
@@ -103,6 +107,8 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
             parent_text=row.parent_text,
             document_id=row.document_id,
             document_name=row.document_name,
+            file_name=row.file_name,
+            source_url=row.source_url,
             distance=row.distance,
             match_type="vector",
         )
@@ -123,6 +129,8 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
                 parent_text=sib.parent_text,
                 document_id=row.document_id,
                 document_name=row.document_name,
+                file_name=row.file_name,
+                source_url=row.source_url,
                 distance=row.distance,  # ใช้ distance ของ chunk ต้นทางที่ match จริง เพราะ sibling เองไม่ได้ผ่าน vector search
                 match_type="sibling",
             )
