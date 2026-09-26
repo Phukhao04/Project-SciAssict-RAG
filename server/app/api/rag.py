@@ -73,16 +73,24 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     # บันทึกทั้งคำถามและคำตอบลง messages อัตโนมัติ
     save_message(db, session_id, payload.user_id, "user", payload.question)
 
-    unique_sources = {}
-    for chunk in chunks:
-        unique_sources[chunk.document_id] = ChatSource(
-            document_id=chunk.document_id,
-            file_name=chunk.file_name or chunk.document_name,
-            source_url=chunk.source_url,
-            download_url=f"/api/rag/documents/{chunk.document_id}/download",
-        )
+    # เลือก "เอกสารเดียว" จาก chunk ที่มี similarity สูงสุดจริง
+    # ห้ามใช้ลำดับ document_id/chunk_id เพราะ retrieval เรียงกลับตามลำดับในเอกสาร
+    best_chunk = min(
+        (chunk for chunk in chunks if chunk.match_type == "vector"),
+        key=lambda chunk: chunk.distance,
+        default=(chunks[0] if chunks else None),
+    )
 
-    sources = list(unique_sources.values())[:1]
+    sources = []
+    if best_chunk is not None:
+        sources = [
+            ChatSource(
+                document_id=best_chunk.document_id,
+                file_name=best_chunk.file_name or best_chunk.document_name,
+                source_url=best_chunk.source_url,
+                download_url=f"/api/rag/documents/{best_chunk.document_id}/download",
+            )
+        ]
 
     source_payload = [
         source.model_dump() if hasattr(source, "model_dump") else source.dict()
