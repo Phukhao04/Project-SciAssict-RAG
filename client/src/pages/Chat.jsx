@@ -205,28 +205,16 @@ function Chat() {
         ) : (
           <div className="messages">
             {chatHistory.map((msg, i) => (
-  <div key={i} className={`row ${msg.role === 'user' ? 'user' : ''}`}>
-    {msg.role !== 'user' && (
-      <div className="avatar bot">
-        <Atom size={14} color="#FFD400" />
-      </div>
-    )}
-
-    <div
-      className={
-        msg.role === 'user'
-          ? 'bubble-user'
-          : `bubble-bot${msg.isError ? ' bubble-error' : ''}`
-      }
-    >
-      <div className="message-text">{msg.text}</div>
-    </div>
-
-    {msg.role === 'user' && (
-      <div className="avatar user">{avatarLetter}</div>
-    )}
-  </div>
-))}
+              <div key={i} className={`row ${msg.role === 'user' ? 'user' : ''}`}>
+                {msg.role !== 'user' && (
+                  <div className="avatar bot"><Atom size={14} color="#FFD400" /></div>
+                )}
+                <div className={msg.role === 'user' ? 'bubble-user' : `bubble-bot${msg.isError ? ' bubble-error' : ''}`}>
+                  {msg.text}
+                </div>
+                {msg.role === 'user' && <div className="avatar user">{avatarLetter}</div>}
+              </div>
+            ))}
             {isSending && (
               <div className="row">
                 <div className="avatar bot"><Atom size={14} color="#FFD400" /></div>
@@ -240,6 +228,7 @@ function Chat() {
             <div ref={messagesEndRef} />
           </div>
         )}
+
         <div className="input-zone">
           <form className="input-bar" onSubmit={handleSend}>
             <input
