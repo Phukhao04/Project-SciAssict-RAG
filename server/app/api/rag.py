@@ -82,7 +82,10 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     )
 
     sources = []
-    if best_chunk is not None:
+    if (
+        best_chunk is not None
+        and answer.strip() != "ไม่พบข้อมูลนี้ในระบบ"
+    ):
         sources = [
             ChatSource(
                 document_id=best_chunk.document_id,
