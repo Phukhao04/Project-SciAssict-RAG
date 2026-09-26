@@ -510,15 +510,3 @@
 .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .disclaimer { text-align: center; font-size: 10.5px; color: #b3b1c4; margin-top: 8px; }
-
-/* UX enhancements — keep the original navy wave visual */
-.message-text{white-space:pre-wrap;overflow-wrap:anywhere}
-.message-tools{display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px dashed var(--border)}
-.message-tools button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:10.5px;padding:3px 6px;border-radius:6px;cursor:pointer}
-.message-tools button:hover{background:var(--yellow-soft);color:var(--navy)}
-.citation-chip{cursor:default}
-.citation-chip:hover{border-color:var(--border);background:var(--cream)}
-.scroll-bottom-btn{position:sticky;bottom:8px;align-self:center;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--navy);padding:7px 12px;font:inherit;font-size:11px;font-weight:600;box-shadow:0 5px 16px rgba(11,17,80,.12);cursor:pointer}
-.scroll-bottom-btn:hover{background:var(--yellow-soft)}
-.chip{font-family:inherit}
-@media(max-width:760px){.message-tools{margin-top:8px}.scroll-bottom-btn{font-size:10.5px}}
