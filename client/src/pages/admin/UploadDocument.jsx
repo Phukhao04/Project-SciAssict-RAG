@@ -29,6 +29,8 @@ function UploadDocument() {
   const [documentName, setDocumentName] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [fileToken, setFileToken] = useState(null);
   const [file, setFile] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -194,6 +196,7 @@ function UploadDocument() {
 
     try {
       const data = await uploadAndParse(formData);
+      setFileToken(data.file_token || null);
       setLines(data.lines);
 
       // pre-fill จาก Word heading style ที่ตรวจพบในไฟล์ (ถ้ามี) - เป็นแค่
@@ -383,6 +386,9 @@ function UploadDocument() {
           category_id: Number(categoryId),
           user_id: user.user_id,
           description: description.trim() || null,
+          source_url: sourceUrl.trim() || null,
+          file_name: file.name,
+          file_token: fileToken,
         }),
       });
       if (!res.ok) {
@@ -405,6 +411,8 @@ function UploadDocument() {
     setDocumentName("");
     setCategoryId("");
     setDescription("");
+    setSourceUrl("");
+    setFileToken(null);
     setFile(null);
     setUploadProgress(0);
     setLines([]);
@@ -558,6 +566,22 @@ function UploadDocument() {
                           disabled={isParsing}
                           onChange={(e) => setDescription(e.target.value)}
                         />
+                      </div>
+
+                      <div className="upload-field">
+                        <label>
+                          URL หน้าเว็บต้นทาง <span className="upload-optional">ไม่บังคับ</span>
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="เช่น https://www.example.ac.th/..."
+                          value={sourceUrl}
+                          disabled={isParsing}
+                          onChange={(e) => setSourceUrl(e.target.value)}
+                        />
+                        <span className="upload-field-hint">
+                          ใส่ลิงก์หน้าเว็บไซต์คณะที่ดาวน์โหลดเอกสารนี้มา
+                        </span>
                       </div>
                     </section>
                   </div>
