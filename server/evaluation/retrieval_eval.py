@@ -74,8 +74,8 @@ def is_relevant(chunk_text_n: str, doc_n: str, kws: list[str], hint: str | None)
     return all(k in chunk_text_n for k in kws)
 
 
-def ranked_vector(db, question: str, max_k: int, program_hint: str | None = None, hybrid: bool = False) -> list:
-    chunks = retrieve(db, question, k=max_k, program_hint=program_hint, hybrid=hybrid)
+def ranked_vector(db, question: str, max_k: int, program_hint: str | None = None, hybrid: bool = False, keyword_boost: bool = False) -> list:
+    chunks = retrieve(db, question, k=max_k, program_hint=program_hint, hybrid=hybrid, keyword_boost=keyword_boost)
     vec = [c for c in chunks if c.match_type == "vector"]
     vec.sort(key=lambda c: (c.distance, c.chunk_id))
     return vec
@@ -113,6 +113,7 @@ def main() -> None:
     ap.add_argument("--ks", default="1,3,5,10", help="k ที่ใช้รายงาน rank metrics")
     ap.add_argument("--ignore-program", action="store_true")
     ap.add_argument("--hybrid", action="store_true", help="ทดลองจัดอันดับด้วย vector + keyword")
+    ap.add_argument("--keyword-boost", action="store_true", help="ทดลองดัน chunk ที่ตรง keyword ขึ้นอันดับ")
     ap.add_argument("--no-save", action="store_true")
     args = ap.parse_args()
 
@@ -141,8 +142,8 @@ def main() -> None:
                 continue
 
             t0 = time.perf_counter()
-            vec = ranked_vector(db, q["question"], max_k, program_hint=hint, hybrid=args.hybrid)
-            ctx = retrieve(db, q["question"], k=args.k, program_hint=hint, hybrid=args.hybrid)
+            vec = ranked_vector(db, q["question"], max_k, program_hint=hint, hybrid=args.hybrid, keyword_boost=args.keyword_boost)
+            ctx = retrieve(db, q["question"], k=args.k, program_hint=hint, hybrid=args.hybrid, keyword_boost=args.keyword_boost)
             latency_ms = (time.perf_counter() - t0) * 1000
 
             flags = [c.chunk_id in rel_ids for c in vec]
@@ -200,7 +201,7 @@ def main() -> None:
         print("ไม่มีคำถามที่ใช้คำนวณได้ — หยุด")
         return
 
-    mode = "hybrid vector + keyword" if args.hybrid else "vector ranking"
+    mode = "keyword boost" if args.keyword_boost else ("hybrid vector + keyword" if args.hybrid else "vector ranking")
     print(f"=== Retrieval metrics (n={len(rows)}) — {mode} ===")
     print(f"{'k':>3} {'Hit@k':>8} {'Prec@k':>8} {'Recall@k':>9} {'nDCG@k':>8}")
     for k in ks:
