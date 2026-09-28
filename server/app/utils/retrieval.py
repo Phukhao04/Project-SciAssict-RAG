@@ -72,6 +72,7 @@ def retrieve(
     k: int = 5,
     program_hint: str | None = None,
     hybrid: bool = False,
+    keyword_boost: bool = False,
 ) -> list[RetrievedChunk]:
     """
     คืนค่า chunk ที่เกี่ยวข้องกับคำถาม ด้วย vector search (cosine distance)
@@ -108,13 +109,13 @@ def retrieve(
         sql,
         {
             "query_embedding": json.dumps(query_embedding),
-            "candidate_k": max(k * 5, 20) if hybrid else k,
+            "candidate_k": max(k * 10, 50) if (hybrid or keyword_boost) else k,
             "program_hint": program_hint,
             "program_pattern": f"%{program_hint}%" if program_hint else None,
         },
     ).fetchall()
 
-    if hybrid and rows:
+    if (hybrid or keyword_boost) and rows:
         query_norm = query_text_str.strip().lower()
         terms = [t for t in re.split(r"\\s+", query_norm) if len(t) >= 2]
 
