@@ -65,12 +65,20 @@ def _fetch_sibling_chunks(
     ]
 
 
-def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChunk]:
+def retrieve(
+    db: Session,
+    query_text_str: str,
+    k: int = 5,
+    program_hint: str | None = None,
+) -> list[RetrievedChunk]:
     """
     คืนค่า chunk ที่เกี่ยวข้องกับคำถาม ด้วย vector search (cosine distance)
     เป็นหลัก แล้วเสริมด้วย chunk ข้างเคียงที่มี heading เดียวกัน (sibling
     expansion) เพื่อรวมเนื้อหาที่ถูกตัดแบ่งเพราะเกิน max_chars ตอน ingest
     ให้ครบก่อนส่งเข้า LLM
+
+    ถ้า program_hint ถูกส่งมา จะกรอง document_name ก่อนทำ vector ranking
+    เพื่อไม่ให้เอกสารคนละหลักสูตรเข้ามาแย่งอันดับกัน
     """
     query_embedding = embed_query(query_text_str)
 
@@ -87,6 +95,7 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
         FROM document_chunk dc
         JOIN document d
             ON dc.document_id = d.document_id
+        WHERE (:program_hint IS NULL OR d.document_name LIKE :program_pattern)
         ORDER BY distance
         LIMIT :k
     """)
@@ -96,6 +105,8 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
         {
             "query_embedding": json.dumps(query_embedding),
             "k": k,
+            "program_hint": program_hint,
+            "program_pattern": f"%{program_hint}%" if program_hint else None,
         },
     ).fetchall()
 
