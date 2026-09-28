@@ -74,8 +74,8 @@ def is_relevant(chunk_text_n: str, doc_n: str, kws: list[str], hint: str | None)
     return all(k in chunk_text_n for k in kws)
 
 
-def ranked_vector(db, question: str, max_k: int) -> list:
-    chunks = retrieve(db, question, k=max_k)
+def ranked_vector(db, question: str, max_k: int, program_hint: str | None = None) -> list:
+    chunks = retrieve(db, question, k=max_k, program_hint=program_hint)
     vec = [c for c in chunks if c.match_type == "vector"]
     vec.sort(key=lambda c: (c.distance, c.chunk_id))
     return vec
@@ -140,8 +140,8 @@ def main() -> None:
                 continue
 
             t0 = time.perf_counter()
-            vec = ranked_vector(db, q["question"], max_k)
-            ctx = retrieve(db, q["question"], k=args.k)
+            vec = ranked_vector(db, q["question"], max_k, program_hint=hint)
+            ctx = retrieve(db, q["question"], k=args.k, program_hint=hint)
             latency_ms = (time.perf_counter() - t0) * 1000
 
             flags = [c.chunk_id in rel_ids for c in vec]
