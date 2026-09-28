@@ -200,7 +200,8 @@ def main() -> None:
         print("ไม่มีคำถามที่ใช้คำนวณได้ — หยุด")
         return
 
-    print(f"=== Retrieval metrics (n={len(rows)}) — {"hybrid vector + keyword" if args.hybrid else "vector ranking"} ===")
+    mode = "hybrid vector + keyword" if args.hybrid else "vector ranking"
+    print(f"=== Retrieval metrics (n={len(rows)}) — {mode} ===")
     print(f"{'k':>3} {'Hit@k':>8} {'Prec@k':>8} {'Recall@k':>9} {'nDCG@k':>8}")
     for k in ks:
         print(
