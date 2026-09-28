@@ -149,3 +149,15 @@ export async function registerRequest({
     errorMessage: "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง",
   };
 }
+
+export function authHeaders() {
+  const accessToken = localStorage.getItem("access_token");
+
+  if (!accessToken) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${accessToken}`,
+  };
+}
