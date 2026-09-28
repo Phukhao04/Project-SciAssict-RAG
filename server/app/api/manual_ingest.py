@@ -18,8 +18,14 @@ rag.py ที่ดูแล document endpoints อื่นๆ อยู่แ�
 """
 
 import logging
+import os
+import re
+import shutil
+import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -48,6 +54,13 @@ from app.utils.ingestion import _embed_and_insert_chunks, _insert_document_row
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/rag/documents", tags=["manual-ingest"])
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+UPLOAD_ROOT = BASE_DIR / "uploads"
+PENDING_DIR = UPLOAD_ROOT / "pending"
+DOCUMENT_DIR = UPLOAD_ROOT / "documents"
+PENDING_DIR.mkdir(parents=True, exist_ok=True)
+DOCUMENT_DIR.mkdir(parents=True, exist_ok=True)
 
 # เท่ากับ MAX_FILE_SIZE_MB ใน rag.py (/documents/upload) - endpoint นี้เดิม
 # ไม่มีการเช็คขนาดไฟล์เลย ทำให้เสียการป้องกันไปเงียบๆ ถ้า frontend เปลี่ยน
@@ -103,6 +116,10 @@ async def parse_raw(
             detail="ไม่พบเนื้อหาในไฟล์ (ไฟล์อาจว่างเปล่า)",
         )
 
+    file_token = uuid.uuid4().hex
+    pending_path = PENDING_DIR / f"{file_token}.upload"
+    pending_path.write_bytes(file_bytes)
+
     return ParseRawResponse(
         lines=[
             RawLineOut(
@@ -112,7 +129,31 @@ async def parse_raw(
                 suggested_level=ln.suggested_level,
             )
             for ln in raw_lines
-        ]
+        ],
+        file_token=file_token,
+    )
+
+
+@router.get("/{document_id}/download")
+def download_document(document_id: int, db: Session = Depends(get_db)):
+    from sqlalchemy import text
+
+    row = db.execute(
+        text("SELECT file_name, file_path FROM document WHERE document_id = :document_id"),
+        {"document_id": document_id},
+    ).first()
+
+    if row is None or not row.file_path:
+        raise HTTPException(status_code=404, detail="ไม่พบไฟล์เอกสารนี้")
+
+    file_path = (BASE_DIR / row.file_path).resolve()
+    if DOCUMENT_DIR.resolve() not in file_path.parents or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="ไม่พบไฟล์เอกสารนี้")
+
+    return FileResponse(
+        path=file_path,
+        filename=row.file_name or file_path.name,
+        media_type="application/octet-stream",
     )
 
 
@@ -171,6 +212,23 @@ def confirm_manual_ingest(
         )
 
     try:
+        if not re.fullmatch(r"[a-f0-9]{32}", body.file_token):
+            raise HTTPException(status_code=400, detail="รหัสไฟล์ไม่ถูกต้อง")
+
+        pending_path = PENDING_DIR / f"{body.file_token}.upload"
+        if not pending_path.is_file():
+            raise HTTPException(
+                status_code=400,
+                detail="ไม่พบไฟล์ที่อัปโหลดไว้ กรุณาเลือกไฟล์ใหม่แล้วลองอีกครั้ง",
+            )
+
+        safe_name = re.sub(r"[^A-Za-z0-9._ก-๙ -]", "_", body.file_name).strip()
+        safe_name = safe_name or "document"
+        final_name = f"{body.file_token}_{safe_name}"
+        final_path = DOCUMENT_DIR / final_name
+        shutil.move(str(pending_path), str(final_path))
+        file_path = str(final_path.relative_to(BASE_DIR)).replace(os.sep, "/")
+
         document_id = _insert_document_row(
             db,
             body.document_name,
@@ -178,6 +236,9 @@ def confirm_manual_ingest(
             body.category_id,
             body.user_id,
             body.description,
+            body.source_url,
+            body.file_name,
+            file_path,
         )
 
         chunks = [

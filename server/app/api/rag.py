@@ -1,31 +1,25 @@
-"""
-RAG API endpoints
-ทำไมไฟล์นี้ "บาง" (ไม่มี logic เยอะ): เพราะ logic จริงอยู่ใน utils/ หมดแล้ว
-ไฟล์นี้มีหน้าที่แค่ "รับ request -> เรียก utils -> ส่ง response" เท่านั้น
-"""
-
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.rag import (
     ChatRequest,
     ChatResponse,
-    IngestRequest,
+    ChatSource,
     IngestResponse,
     CategoryResponse,
+    CategoryCreateRequest,
     DocumentListItem,
     DocumentDetailResponse,
     StatsResponse,
     QueryActivityItem,
 )
-from app.utils.ingestion import UnsupportedFileTypeError
-from app.utils.ingestion import ingest_document, ingest_text
 from app.utils.llm import generate_answer
 from app.utils.retrieval import retrieve
 from app.crud.chat_crud import create_session, save_message
 from app.crud.document_crud import (
     get_all_categories,
+    create_category,
     delete_document,
     get_all_documents,
     get_document_detail,
@@ -35,59 +29,22 @@ from app.crud.document_crud import (
 
 router = APIRouter(prefix="/api/rag", tags=["RAG"])
 
-MAX_FILE_SIZE_MB = 20
-
-
-@router.post("/documents/upload", response_model=IngestResponse)
-async def upload_document(
-    file: UploadFile = File(...),
-    document_name: str = Form(...),
-    category_id: int = Form(...),
-    user_id: int = Form(...),
-    description: str | None = Form(default=None),
-    db: Session = Depends(get_db),
-):
-    """
-    รับไฟล์ PDF/Word โดยตรง -> ส่ง bytes ดิบให้ ingest_document() จัดการ
-    extract + chunk เองทั้งหมดข้างใน (v3: ใช้ Docling สำหรับ .docx)
-    ไม่ต้องเรียก extract_text() แยกก่อนแล้ว
-    """
-    file_bytes = await file.read()
-    size_mb = len(file_bytes) / (1024 * 1024)
-    if size_mb > MAX_FILE_SIZE_MB:
-        raise HTTPException(
-            status_code=413, detail=f"ไฟล์ใหญ่เกิน {MAX_FILE_SIZE_MB}MB"
-        )
-
-    document_type = file.filename.lower().rsplit(".", 1)[-1]
-
-    try:
-        result = ingest_document(
-            db,
-            filename=file.filename,
-            file_bytes=file_bytes,
-            document_name=document_name,
-            document_type=document_type,
-            category_id=category_id,
-            user_id=user_id,
-            description=description,
-        )
-    except UnsupportedFileTypeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="ไม่สามารถบันทึกเอกสารได้ กรุณาตรวจสอบข้อมูลที่ส่งมา",
-        ) from exc
-
-    return IngestResponse(**result)
-
 
 @router.get("/categories", response_model=list[CategoryResponse])
 def list_categories(db: Session = Depends(get_db)):
     """ให้ frontend ดึงไปแสดงใน dropdown ตอนอัปโหลดเอกสาร"""
     return get_all_categories(db)
+
+
+@router.post("/categories", response_model=CategoryResponse, status_code=201)
+def add_category(
+    payload: CategoryCreateRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        return create_category(db, payload.category_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/documents/{document_id}", response_model=DocumentDetailResponse)
@@ -96,33 +53,6 @@ def get_document(document_id: int, db: Session = Depends(get_db)):
     if result is None:
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้ในระบบ")
     return result
-
-
-@router.post("/documents/ingest", response_model=IngestResponse)
-def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
-    """
-    รับ text ดิบๆ ตรงๆ (ไม่ใช่ไฟล์) -> ไม่มี heading style ให้อ่าน
-    เรียก ingest_text() ซึ่งแยกออกมาเฉพาะสำหรับเส้นทางนี้ (ingest_document
-    รับแค่ filename+file_bytes แล้วหลัง migrate Docling ไม่มี paragraphs อีก)
-    """
-    try:
-        result = ingest_text(
-            db,
-            raw_text=payload.text,
-            document_name=payload.document_name,
-            document_type=payload.document_type,
-            category_id=payload.category_id,
-            user_id=payload.user_id,
-            description=payload.description,
-        )
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="ไม่สามารถบันทึกเอกสารได้ กรุณาตรวจสอบข้อมูลที่ส่งมา",
-        ) from exc
-
-    return IngestResponse(**result)
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -142,9 +72,43 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
 
     # บันทึกทั้งคำถามและคำตอบลง messages อัตโนมัติ
     save_message(db, session_id, payload.user_id, "user", payload.question)
-    save_message(db, session_id, payload.user_id, "bot", answer)
 
-    sources = list({c.document_name for c in chunks})
+    # เลือก "เอกสารเดียว" จาก chunk ที่มี similarity สูงสุดจริง
+    # ห้ามใช้ลำดับ document_id/chunk_id เพราะ retrieval เรียงกลับตามลำดับในเอกสาร
+    best_chunk = min(
+        (chunk for chunk in chunks if chunk.match_type == "vector"),
+        key=lambda chunk: chunk.distance,
+        default=(chunks[0] if chunks else None),
+    )
+
+    sources = []
+    if (
+        best_chunk is not None
+        and answer.strip() != "ไม่พบข้อมูลนี้ในระบบ"
+    ):
+        sources = [
+            ChatSource(
+                document_id=best_chunk.document_id,
+                file_name=best_chunk.file_name or best_chunk.document_name,
+                source_url=best_chunk.source_url,
+                download_url=f"/api/rag/documents/{best_chunk.document_id}/download",
+            )
+        ]
+
+    source_payload = [
+        source.model_dump() if hasattr(source, "model_dump") else source.dict()
+        for source in sources
+    ]
+
+    save_message(
+        db,
+        session_id,
+        payload.user_id,
+        "bot",
+        answer,
+        sources=source_payload,
+    )
+
     return ChatResponse(answer=answer, sources=sources, session_id=session_id)
 
 
@@ -159,6 +123,7 @@ def remove_document(document_id: int, db: Session = Depends(get_db)):
     if not deleted:
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้ในระบบ")
     return {"success": True, "document_id": document_id}
+
 
 @router.get("/stats", response_model=StatsResponse)
 def stats(db: Session = Depends(get_db)):

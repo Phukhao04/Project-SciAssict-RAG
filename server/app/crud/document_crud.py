@@ -35,6 +35,36 @@ def get_all_categories(db: Session) -> list[dict]:
     ]
 
 
+def create_category(db: Session, category_name: str) -> dict:
+    name = category_name.strip()
+    if not name:
+        raise ValueError("ชื่อหมวดหมู่ต้องไม่ว่าง")
+
+    exists = db.execute(
+        text("""
+            SELECT category_id
+            FROM document_category
+            WHERE category_name = :category_name
+            LIMIT 1
+        """),
+        {"category_name": name},
+    ).first()
+
+    if exists is not None:
+        raise ValueError("มีหมวดหมู่นี้อยู่แล้ว")
+
+    result = db.execute(
+        text("""
+            INSERT INTO document_category (category_name)
+            VALUES (:category_name)
+        """),
+        {"category_name": name},
+    )
+    db.commit()
+
+    category_id = result.lastrowid
+    return {"category_id": int(category_id), "category_name": name}
+
 def get_all_documents(db: Session) -> list[dict]:
     sql = text("""
         SELECT
@@ -79,7 +109,7 @@ def delete_document(db: Session, document_id: int) -> bool:
     cascade ของ DB ตรงๆ จนกว่าจะแก้ constraint ให้ถูก ลบเองด้วยโค้ดชัวร์กว่า
     """
     exists = db.execute(
-        text("SELECT 1 FROM document WHERE document_id = :id"),
+        text("SELECT file_path FROM document WHERE document_id = :id"),
         {"id": document_id},
     ).first()
     if exists is None:
@@ -94,6 +124,17 @@ def delete_document(db: Session, document_id: int) -> bool:
         {"id": document_id},
     )
     db.commit()
+
+    if exists.file_path:
+        import os
+        from pathlib import Path
+
+        base_dir = Path(__file__).resolve().parents[2]
+        try:
+            os.remove(base_dir / exists.file_path)
+        except OSError:
+            pass
+
     return True
 
 

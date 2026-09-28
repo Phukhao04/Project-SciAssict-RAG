@@ -1,151 +1,88 @@
-"""
-Retrieval Service
-
-หน้าที่
-1. ถ้าคำถามระบุ "ปี X" / "เทอม Y" ชัดเจน -> ดึง chunk จาก heading ที่ตรง
-   ตัวเป๊ะโดยตรง (LIKE บน parent_text) ข้าม vector search ไปเลย
-2. ถ้าไม่เข้าเงื่อนไขข้อ 1 (คำถามทั่วไป ไม่ระบุปี/เทอม) -> fallback ไปใช้
-   vector search แบบเดิม (child chunk embedding ใกล้สุด)
-
-v2: เพิ่ม heading-match เพราะเจอจริงจากการทดสอบว่า dense embedding
-(bge-m3) แยกไม่แม่นเวลาคำถามมีคำว่า "ICT" ปนอยู่ - เนื้อหาวิชาปีที่ 4
-(เทคโนโลยีสารสนเทศเฉพาะทางล้วนๆ) มีคำว่า "เทคโนโลยีสารสนเทศ" ซ้ำเยอะ
-กว่าปีที่ 1 (วิชาพื้นฐานทั่วไป) มาก ทำให้ embedding เอนเอียงไปทางปีที่ 4
-ทั้งที่คำถามถามหาปีที่ 1 ชัดเจน - ปัญหานี้เป็นที่รู้จักกันดีว่า dense
-retrieval แม่นน้อยกว่ากับ query ที่มี exact identifier (เลขปี/เทอม)
-ชัดเจนอยู่แล้ว ทางแก้ตรงจุดคือ bypass vector search ไปเลยกรณีนี้
-
-v2.1: เพิ่ม log แยกกรณี "คำถามไม่มีเลขปี" (ปกติ, ไม่ log) ออกจากกรณี
-      "คำถามมีเลขปีชัดเจน แต่ query แล้วไม่เจอแถวไหนตรงเงื่อนไขเลย"
-      (ผิดปกติ, log เป็น warning) - ก่อนหน้านี้สองกรณีนี้คืนค่า [] เหมือนกัน
-      แล้ว fallback ไป vector search แบบเงียบๆ ทำให้แยกไม่ออกว่า list
-      วิชาที่หายไปบางครั้งเกิดจาก (ก) LLM ตัดทิ้งตอน generate หรือ
-      (ข) heading-match ควร fire แต่ไม่ fire เพราะ regex/LIKE pattern
-      ไม่ตรงกับ format จริงในเอกสาร แล้วหลุดไปใช้ vector search ซึ่งรู้อยู่
-      แล้วว่าแม่นน้อยกว่าสำหรับคำถามแบบนี้
-"""
-
 import json
 import logging
-import re
 from dataclasses import dataclass
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from .embedding import embed_query
+from .chunk_heading import extract_chunk_heading
 
 logger = logging.getLogger(__name__)
+
+# รัศมี chunk_id ที่จะมองหา "เศษที่เหลือ" ของ heading เดียวกัน - เผื่อไว้พอ
+# สำหรับ heading ที่เนื้อหายาวจน max_chars (1500) ตัดเป็นหลาย chunk ติดกัน
+SIBLING_SEARCH_RADIUS = 5
 
 
 @dataclass
 class RetrievedChunk:
-    chunk_text: str  # child text ที่แมตช์จริง (เก็บไว้เผื่อ debug/citation)
-    parent_text: str  # parent text (ส่งให้ LLM อ่านจริง)
+    chunk_id: int
+    chunk_text: str
+    parent_text: str
     document_id: int
     document_name: str
+    file_name: str | None
+    source_url: str | None
     distance: float
-    match_type: str = "vector"  # "heading" (แมตช์ตรงจาก heading) หรือ "vector"
-    # (จาก cosine similarity) - llm.py ใช้ field นี้ตัดสินใจว่าจะ format
-    # คำตอบตรงๆ (heading) หรือให้ LLM เรียบเรียง (vector)
+    match_type: str = "vector"  # "vector" = มาจาก similarity search ตรงๆ, "sibling" = ถูกดึงมาเสริมเพราะ heading เดียวกันกับ chunk ที่ match
 
 
-# จับเลขปี/เทอมจากคำถาม รองรับทั้ง "ปี 1" และ "ปีที่ 1" / "เทอม 1" และ
-# "ภาคการศึกษาที่ 1" (คนละคำพูดแต่ความหมายเดียวกัน คนถามมักพิมพ์แบบย่อ)
-YEAR_PATTERN = re.compile(r"ปี(?:ที่)?\s*(\d+)")
-SEMESTER_PATTERN = re.compile(r"(?:เทอม|ภาคการศึกษา(?:ที่)?)\s*(\d+)")
-
-# ปีที่ 4 แยกเป็น "แบบที่ 1 ไม่ใช่สหกิจศึกษา" กับ "แบบที่ 2 สหกิจศึกษา"
-# ต้องระวัง "สหกิจศึกษา" เป็น substring ของ "ไม่ใช่สหกิจศึกษา" ด้วย
-# (?<!ไม่ใช่) กันไม่ให้ COOP_PATTERN ไป match คำถามที่จริงๆ พูดถึง
-# "ไม่ใช่สหกิจ" อยู่แล้ว
-NOT_COOP_PATTERN = re.compile(r"ไม่ใช่สหกิจ")
-COOP_PATTERN = re.compile(r"(?<!ไม่ใช่)สหกิจศึกษา")
-
-
-def _try_heading_match(db: Session, question: str) -> list[RetrievedChunk]:
+def _fetch_sibling_chunks(
+    db: Session, document_id: int, center_chunk_id: int, heading: str
+) -> list:
     """
-    ถ้าคำถามระบุปีชัดเจน (มีคำว่า "ปี"/"ปีที่" ตามด้วยตัวเลข) ลองดึง chunk
-    ที่ parent_text มี heading ตรงเงื่อนไขทั้งหมดที่คำถามระบุ (ปี, เทอมถ้ามี,
-    แบบสหกิจ/ไม่สหกิจถ้ามี) คืน list ว่างถ้าไม่มีเลขปีในคำถามเลย (ให้
-    retrieve() ไป fallback ใช้ vector search ตามปกติ)
+    ดึง chunk ที่ chunk_id อยู่ในรัศมี SIBLING_SEARCH_RADIUS ของเอกสาร
+    เดียวกัน แล้วกรองเฉพาะอันที่ extract heading ออกมาแล้วตรงกับ heading
+    ของ chunk ศูนย์กลางเป๊ะ
 
-    หมายเหตุ: list ว่างที่คืนออกไปมีได้ 2 ความหมายที่ต่างกัน ดู log
-    ใน retrieve() สำหรับการแยกแยะ
+    ใช้จับกรณี: เนื้อหาใต้ heading เดียวกันยาวเกิน max_chars ตอน ingest
+    (ดู build_chunks_from_marks ใน ingest_manual.py) เลยถูกตัดเป็นหลาย
+    chunk แยกกันใน DB - ถ้า vector search เจอแค่ชิ้นเดียว LLM จะเห็น
+    เนื้อหาไม่ครบ คำตอบขาดหายโดยไม่รู้ตัว
     """
-    year_match = YEAR_PATTERN.search(question)
-    if not year_match:
-        return []
-
-    year_num = year_match.group(1)
-    conditions = ["dc.parent_text LIKE :year_pattern"]
-    params: dict = {"year_pattern": f"%ปีที่ {year_num}%"}
-
-    semester_match = SEMESTER_PATTERN.search(question)
-    if semester_match:
-        semester_num = semester_match.group(1)
-        conditions.append("dc.parent_text LIKE :semester_pattern")
-        params["semester_pattern"] = f"%ภาคการศึกษาที่ {semester_num}%"
-
-    if NOT_COOP_PATTERN.search(question):
-        conditions.append("dc.parent_text LIKE :coop_pattern")
-        params["coop_pattern"] = "%ไม่ใช่สหกิจ%"
-    elif COOP_PATTERN.search(question):
-        conditions.append("dc.parent_text LIKE :coop_pattern")
-        conditions.append("dc.parent_text NOT LIKE :not_coop_pattern")
-        params["coop_pattern"] = "%สหกิจศึกษา%"
-        params["not_coop_pattern"] = "%ไม่ใช่สหกิจศึกษา%"
-
-    where_clause = " AND ".join(conditions)
-    sql = text(f"""
-        SELECT
-            dc.chunk_text,
-            dc.parent_text,
-            dc.document_id,
-            d.document_name
-        FROM document_chunk dc
-        JOIN document d
-            ON dc.document_id = d.document_id
-        WHERE {where_clause}
+    sql = text("""
+        SELECT chunk_id, chunk_text, parent_text
+        FROM document_chunk
+        WHERE document_id = :document_id
+          AND chunk_id BETWEEN :lo AND :hi
+        ORDER BY chunk_id ASC
     """)
+    rows = db.execute(
+        sql,
+        {
+            "document_id": document_id,
+            "lo": center_chunk_id - SIBLING_SEARCH_RADIUS,
+            "hi": center_chunk_id + SIBLING_SEARCH_RADIUS,
+        },
+    ).fetchall()
 
-    rows = db.execute(sql, params).fetchall()
-
-    if not rows:
-        # คำถามมีเลขปีชัดเจน (year_match เจอ) แต่ query แล้วไม่เจอแถวไหน
-        # ตรงเงื่อนไขเลย - นี่คือ regex/LIKE pattern ไม่ตรงกับ heading จริง
-        # ในเอกสาร ไม่ใช่พฤติกรรมปกติ ต้องรู้ตัวว่าเกิดกรณีนี้ เพราะ path
-        # ที่จะ fallback ไป (vector search) รู้อยู่แล้วว่าแม่นน้อยกว่า
-        # สำหรับคำถามที่มีเลขปีชัดเจนแบบนี้ (ดู docstring ด้านบนของไฟล์)
-        logger.warning(
-            f"[retrieve] heading-match เจอเลขปี/เทอมในคำถาม แต่ไม่มี chunk "
-            f"ไหนตรงเงื่อนไขเลย - กำลังหลุดไป vector search แทน "
-            f"(คำถาม: {question!r}, เงื่อนไขที่ใช้ค้นหา: {params!r})"
-        )
-    if rows:
-        logger.info(f"[retrieve] heading-match chunk content: {rows[0].parent_text[:2000]}")
     return [
-        RetrievedChunk(
-            chunk_text=row.chunk_text,
-            parent_text=row.parent_text,
-            document_id=row.document_id,
-            document_name=row.document_name,
-            distance=0.0,  # ไม่ใช่ vector search เลยไม่มี distance จริง
-            match_type="heading",
-        )
+        row
         for row in rows
+        if row.chunk_id != center_chunk_id
+        and extract_chunk_heading(row.parent_text, row.chunk_text) == heading
     ]
 
 
-def _retrieve_by_vector(db: Session, query_text_str: str, k: int) -> list[RetrievedChunk]:
+def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChunk]:
+    """
+    คืนค่า chunk ที่เกี่ยวข้องกับคำถาม ด้วย vector search (cosine distance)
+    เป็นหลัก แล้วเสริมด้วย chunk ข้างเคียงที่มี heading เดียวกัน (sibling
+    expansion) เพื่อรวมเนื้อหาที่ถูกตัดแบ่งเพราะเกิน max_chars ตอน ingest
+    ให้ครบก่อนส่งเข้า LLM
+    """
     query_embedding = embed_query(query_text_str)
 
     sql = text("""
         SELECT
+            dc.chunk_id,
             dc.chunk_text,
             dc.parent_text,
             dc.document_id,
             d.document_name,
+            d.file_name,
+            d.source_url,
             vec_cosine_distance(dc.embedding_vector, :query_embedding) AS distance
         FROM document_chunk dc
         JOIN document d
@@ -162,35 +99,43 @@ def _retrieve_by_vector(db: Session, query_text_str: str, k: int) -> list[Retrie
         },
     ).fetchall()
 
-    return [
-        RetrievedChunk(
+    # ใช้ dict คีย์ด้วย chunk_id กันซ้ำ ระหว่าง top-k เดิมกับ sibling ที่ดึงมาเสริม
+    results: dict[int, RetrievedChunk] = {
+        row.chunk_id: RetrievedChunk(
+            chunk_id=row.chunk_id,
             chunk_text=row.chunk_text,
             parent_text=row.parent_text,
             document_id=row.document_id,
             document_name=row.document_name,
+            file_name=row.file_name,
+            source_url=row.source_url,
             distance=row.distance,
             match_type="vector",
         )
         for row in rows
-    ]
+    }
 
+    for row in rows:
+        heading = extract_chunk_heading(row.parent_text, row.chunk_text)
+        if not heading:
+            continue  # chunk นี้ไม่มี heading กำกับ (เช่นเนื้อหาก่อนหัวข้อแรกของเอกสาร) ไม่มีทางหา sibling ได้
 
-def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChunk]:
-    """
-    คืนค่า chunk ที่เกี่ยวข้องกับคำถาม
+        for sib in _fetch_sibling_chunks(db, row.document_id, row.chunk_id, heading):
+            if sib.chunk_id in results:
+                continue
+            results[sib.chunk_id] = RetrievedChunk(
+                chunk_id=sib.chunk_id,
+                chunk_text=sib.chunk_text,
+                parent_text=sib.parent_text,
+                document_id=row.document_id,
+                document_name=row.document_name,
+                file_name=row.file_name,
+                source_url=row.source_url,
+                distance=row.distance,  # ใช้ distance ของ chunk ต้นทางที่ match จริง เพราะ sibling เองไม่ได้ผ่าน vector search
+                match_type="sibling",
+            )
 
-    ลอง heading-match ก่อนเสมอ (ถ้าคำถามระบุปีชัดเจน) เพราะแม่นกว่า
-    vector search มากสำหรับคำถามแบบนี้ - ถ้าไม่ match อะไรเลย (คำถามไม่มี
-    เลขปี หรือ heading match แล้วไม่เจอแถวไหนตรงเงื่อนไขจริงๆ - ดู warning
-    log ใน _try_heading_match สำหรับกรณีหลัง) ค่อย fallback ไป vector
-    search ตามปกติ
-    """
-    heading_matches = _try_heading_match(db, query_text_str)
-    if heading_matches:
-        logger.info(
-            f"[retrieve] ใช้ heading-match ({len(heading_matches)} chunks) "
-            f"แทน vector search สำหรับคำถาม: {query_text_str!r}"
-        )
-        return heading_matches
-
-    return _retrieve_by_vector(db, query_text_str, k)
+    # เรียงตามลำดับจริงในเอกสาร (document_id, chunk_id) แทนการเรียงตาม
+    # distance เดิม - กันไม่ให้ส่วนที่ 2 ของ heading เดียวกันโผล่ก่อนส่วนที่ 1
+    # ใน prompt ซึ่งจะทำให้ LLM อ่านเนื้อหาสลับลำดับกัน
+    return sorted(results.values(), key=lambda c: (c.document_id, c.chunk_id))

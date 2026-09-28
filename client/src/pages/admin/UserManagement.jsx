@@ -181,8 +181,24 @@ export default function UserManagement() {
       <div className="um-page">
             <div className="um-header">
               <div>
+                <p className="um-eyebrow">ผู้ดูแลระบบ</p>
                 <h1 className="um-title">จัดการผู้ใช้งาน</h1>
-                <p className="um-subtitle">จัดการบัญชีผู้ใช้และสิทธิ์การเข้าถึง</p>
+                <p className="um-subtitle">จัดการบัญชีผู้ใช้และสิทธิ์การเข้าถึงของ Sci Assistant</p>
+              </div>
+            </div>
+
+            <div className="um-summary">
+              <div className="um-summary-card">
+                <span>ผู้ใช้ทั้งหมด</span>
+                <strong>{users.length}</strong>
+              </div>
+              <div className="um-summary-card">
+                <span>ผู้ดูแลระบบ</span>
+                <strong>{users.filter((u) => u.role_id === "R01").length}</strong>
+              </div>
+              <div className="um-summary-card">
+                <span>ผลการค้นหา</span>
+                <strong>{filteredUsers.length}</strong>
               </div>
             </div>
 
@@ -192,7 +208,7 @@ export default function UserManagement() {
                 <input
                   type="text"
                   aria-label="ค้นหาผู้ใช้"
-                  placeholder="ค้นหาชื่อ..."
+                  placeholder="ค้นหาชื่อหรือตามชื่อบัญชี..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />

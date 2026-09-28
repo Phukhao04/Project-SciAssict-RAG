@@ -1,29 +1,3 @@
-"""
-Manual Heading Marking - ทางเลือกแทน Docling สำหรับ flow ที่แอดมิน
-mark heading เองผ่าน UI แทนที่จะพึ่ง Word heading style + Docling
-auto-detection
-
-ทำไมไม่ใช้ Docling ในไฟล์นี้:
-- Docling ถูกออกแบบมาให้ "เดา" heading จาก Word style ซึ่งเราไม่ต้องการ
-  แบบนั้นอีกแล้ว (แอดมิน mark เองตรงๆ ผ่าน UI)
-- เอาโค้ดมาซับซ้อนขึ้นโดยไม่จำเป็นถ้าต้องแปลง manual mark ให้เข้ารูป
-  Docling chunk object ปลอมๆ
-
-จุดที่ต้องระวัง (สืบทอดมาจากบั๊กเดิมที่เจอใน docling_pipeline.py):
-- doc.paragraphs กับ doc.tables เป็นคนละ list ไม่เรียงตามลำดับจริง
-  ในเอกสาร ถ้าอ่านแยกกันจะทำให้ heading กับตารางที่ควรอยู่คู่กันหลุด
-  จากกัน (เป็น root cause ของ chunking failure ที่เจอมาก่อน) -
-  แก้โดยเดิน document tree ตามลำดับจริงด้วย _iter_block_items()
-
-รองรับ 2 ประเภทไฟล์ (เท่ากับที่ ingestion.py เดิมรองรับ):
-- .docx -> parse_raw_docx() (อ่านผ่าน python-docx ตรงๆ)
-- .pdf  -> parse_raw_pdf() (reuse extract_text_from_pdf() เดิมจาก
-  extraction.py - ไม่เขียน PDF parser ใหม่ซ้ำ) PDF ไม่มีแนวคิดตาราง/
-  paragraph แยกกันแบบ .docx เลยไม่มี kind="table_row" สำหรับ PDF
-  ทุกบรรทัดถือเป็น "paragraph" เหมือนกันหมด - คุณภาพขึ้นกับ pypdf
-  extraction เอง (ข้อจำกัดเดิมที่มีอยู่แล้ว ไม่ใช่ปัญหาใหม่จากไฟล์นี้)
-"""
-
 import io
 import re
 from dataclasses import dataclass

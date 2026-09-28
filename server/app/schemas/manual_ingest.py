@@ -16,6 +16,7 @@ class RawLineOut(BaseModel):
 
 class ParseRawResponse(BaseModel):
     lines: list[RawLineOut]
+    file_token: str
 
 
 class HeadingMarkIn(BaseModel):
@@ -44,3 +45,6 @@ class ConfirmManualIngestRequest(BaseModel):
     category_id: int
     user_id: int
     description: str | None = None
+    source_url: str | None = None
+    file_name: str
+    file_token: str

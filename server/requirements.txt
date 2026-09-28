@@ -36,9 +36,3 @@ sentence-transformers>=3.0   # utils/embedding.py (ดึง torch + transformer
 # ---- Document parsing ----
 pypdf>=4.2                    # utils/extraction.py
 python-docx>=1.1             # utils/ingest_manual.py, utils/docling_pipeline.py
-
-# ---- Docling (เส้นทาง auto-chunk .docx) ----
-# ถ้าเลิกใช้ POST /api/rag/documents/upload แล้ว ลบ 2 บรรทัดนี้ + ไฟล์
-# utils/docling_pipeline.py ได้ — เป็น dependency ที่หนักที่สุดของโปรเจกต์
-docling>=2.0
-docling-core>=2.0
