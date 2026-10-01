@@ -10,7 +10,7 @@ from datetime import date, timedelta
 import json
 
 from app.utils.chunk_heading import extract_chunk_heading
-from app.utils.embedding import embed_document
+from app.utils.embedding import embed_document, build_embedding_text
 
 THAI_WEEKDAY_SHORT = [
     "จ",
@@ -65,6 +65,43 @@ def create_category(db: Session, category_name: str) -> dict:
     category_id = result.lastrowid
     return {"category_id": int(category_id), "category_name": name}
 
+
+def get_all_programs(db: Session) -> list[dict]:
+    rows = db.execute(
+        text("SELECT program_id, program_name FROM program ORDER BY program_name")
+    ).fetchall()
+    return [{"program_id": r.program_id, "program_name": r.program_name} for r in rows]
+
+
+def create_program(db: Session, program_name: str) -> dict:
+    name = program_name.strip()
+    if not name:
+        raise ValueError("ชื่อสาขาต้องไม่ว่าง")
+
+    exists = db.execute(
+        text("SELECT program_id FROM program WHERE program_name = :n LIMIT 1"),
+        {"n": name},
+    ).first()
+    if exists is not None:
+        raise ValueError("มีสาขานี้อยู่แล้ว")
+
+    result = db.execute(
+        text("INSERT INTO program (program_name) VALUES (:n)"), {"n": name}
+    )
+    db.commit()
+    return {"program_id": int(result.lastrowid), "program_name": name}
+
+
+def get_program_name(db: Session, program_id: int | None) -> str:
+    if program_id is None:
+        return ""
+    row = db.execute(
+        text("SELECT program_name FROM program WHERE program_id = :id"),
+        {"id": program_id},
+    ).first()
+    return row.program_name if row else ""
+
+
 def get_all_documents(db: Session) -> list[dict]:
     sql = text("""
         SELECT
@@ -109,7 +146,7 @@ def delete_document(db: Session, document_id: int) -> bool:
     cascade ของ DB ตรงๆ จนกว่าจะแก้ constraint ให้ถูก ลบเองด้วยโค้ดชัวร์กว่า
     """
     exists = db.execute(
-        text("SELECT 1 FROM document WHERE document_id = :id"),
+        text("SELECT file_path FROM document WHERE document_id = :id"),
         {"id": document_id},
     ).first()
     if exists is None:
@@ -124,6 +161,17 @@ def delete_document(db: Session, document_id: int) -> bool:
         {"id": document_id},
     )
     db.commit()
+
+    if exists.file_path:
+        import os
+        from pathlib import Path
+
+        base_dir = Path(__file__).resolve().parents[2]
+        try:
+            os.remove(base_dir / exists.file_path)
+        except OSError:
+            pass
+
     return True
 
 
@@ -190,9 +238,11 @@ def update_chunk_content(
     """
     row = db.execute(
         text("""
-            SELECT chunk_text, parent_text
-            FROM document_chunk
-            WHERE chunk_id = :chunk_id AND document_id = :document_id
+            SELECT dc.chunk_text, dc.parent_text, d.document_name, p.program_name
+            FROM document_chunk dc
+            JOIN document d ON d.document_id = dc.document_id
+            LEFT JOIN program p ON p.program_id = d.program_id
+            WHERE dc.chunk_id = :chunk_id AND dc.document_id = :document_id
         """),
         {"chunk_id": chunk_id, "document_id": document_id},
     ).first()
@@ -203,7 +253,9 @@ def update_chunk_content(
     heading = extract_chunk_heading(row.parent_text, row.chunk_text)
     new_parent_text = f"{heading}\n{new_body}" if heading else new_body
 
-    embedding = embed_document(new_parent_text)
+    embedding = embed_document(
+        build_embedding_text(row.program_name, row.document_name, new_parent_text)
+    )
 
     db.execute(
         text("""
@@ -222,7 +274,11 @@ def update_chunk_content(
     )
     db.commit()
 
-    return {"chunk_id": chunk_id, "chunk_text": new_body, "parent_text": new_parent_text}
+    return {
+        "chunk_id": chunk_id,
+        "chunk_text": new_body,
+        "parent_text": new_parent_text,
+    }
 
 
 def _to_buddhist_date_str(d: date) -> str:

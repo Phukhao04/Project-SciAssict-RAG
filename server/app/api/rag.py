@@ -9,6 +9,8 @@ from app.schemas.rag import (
     IngestResponse,
     CategoryResponse,
     CategoryCreateRequest,
+    ProgramResponse,
+    ProgramCreateRequest,
     DocumentListItem,
     DocumentDetailResponse,
     StatsResponse,
@@ -20,6 +22,8 @@ from app.crud.chat_crud import create_session, save_message
 from app.crud.document_crud import (
     get_all_categories,
     create_category,
+    get_all_programs,
+    create_program,
     delete_document,
     get_all_documents,
     get_document_detail,
@@ -45,7 +49,18 @@ def add_category(
         return create_category(db, payload.category_name)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    
+@router.get("/programs", response_model=list[ProgramResponse])
+def list_programs(db: Session = Depends(get_db)):
+    return get_all_programs(db)
 
+
+@router.post("/programs", response_model=ProgramResponse, status_code=201)
+def add_program(payload: ProgramCreateRequest, db: Session = Depends(get_db)):
+    try:
+        return create_program(db, payload.program_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @router.get("/documents/{document_id}", response_model=DocumentDetailResponse)
 def get_document(document_id: int, db: Session = Depends(get_db)):
@@ -72,16 +87,42 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
 
     # บันทึกทั้งคำถามและคำตอบลง messages อัตโนมัติ
     save_message(db, session_id, payload.user_id, "user", payload.question)
-    save_message(db, session_id, payload.user_id, "bot", answer)
 
-    sources = [
-        ChatSource(
-            document_name=chunk.document_name,
-            chunk_id=chunk.chunk_id,
-            chunk_text=chunk.chunk_text,
-        )
-        for chunk in chunks
+    # เลือก "เอกสารเดียว" จาก chunk ที่มี similarity สูงสุดจริง
+    # ห้ามใช้ลำดับ document_id/chunk_id เพราะ retrieval เรียงกลับตามลำดับในเอกสาร
+    best_chunk = min(
+        (chunk for chunk in chunks if chunk.match_type == "vector"),
+        key=lambda chunk: chunk.distance,
+        default=(chunks[0] if chunks else None),
+    )
+
+    sources = []
+    if (
+        best_chunk is not None
+        and answer.strip() != "ไม่พบข้อมูลนี้ในระบบ"
+    ):
+        sources = [
+            ChatSource(
+                document_id=best_chunk.document_id,
+                file_name=best_chunk.file_name or best_chunk.document_name,
+                source_url=best_chunk.source_url,
+                download_url=f"/api/rag/documents/{best_chunk.document_id}/download",
+            )
+        ]
+
+    source_payload = [
+        source.model_dump() if hasattr(source, "model_dump") else source.dict()
+        for source in sources
     ]
+
+    save_message(
+        db,
+        session_id,
+        payload.user_id,
+        "bot",
+        answer,
+        sources=source_payload,
+    )
 
     return ChatResponse(answer=answer, sources=sources, session_id=session_id)
 

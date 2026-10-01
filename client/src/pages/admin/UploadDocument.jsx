@@ -29,6 +29,8 @@ function UploadDocument() {
   const [documentName, setDocumentName] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [fileToken, setFileToken] = useState(null);
   const [file, setFile] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -37,6 +39,12 @@ function UploadDocument() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryCreateError, setCategoryCreateError] = useState("");
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [programId, setProgramId] = useState("");
+  const [programs, setPrograms] = useState([]);
+  const [showProgramModal, setShowProgramModal] = useState(false);
+  const [newProgramName, setNewProgramName] = useState("");
+  const [programCreateError, setProgramCreateError] = useState("");
+  const [isCreatingProgram, setIsCreatingProgram] = useState(false);
 
   const handleCreateCategory = async (e) => {
     e.preventDefault();
@@ -64,6 +72,35 @@ function UploadDocument() {
       setCategoryCreateError(err.message);
     } finally {
       setIsCreatingCategory(false);
+    }
+  };
+
+  const handleCreateProgram = async (e) => {
+    e.preventDefault();
+    const name = newProgramName.trim();
+    if (!name || isCreatingProgram) return;
+
+    setProgramCreateError("");
+    setIsCreatingProgram(true);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/rag/programs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ program_name: name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "เพิ่มสาขาไม่สำเร็จ");
+
+      setPrograms((prev) => [...prev, data]);
+      setProgramId(String(data.program_id));
+      setNewProgramName("");
+      setShowProgramModal(false);
+    } catch (err) {
+      console.error(err);
+      setProgramCreateError(err.message);
+    } finally {
+      setIsCreatingProgram(false);
     }
   };
 
@@ -105,6 +142,26 @@ function UploadDocument() {
     }
 
     loadCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPrograms() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/rag/programs`);
+        if (!res.ok) throw new Error("โหลดสาขาวิชาไม่สำเร็จ");
+        const data = await res.json();
+        if (!cancelled) setPrograms(data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    loadPrograms();
     return () => {
       cancelled = true;
     };
@@ -194,6 +251,7 @@ function UploadDocument() {
 
     try {
       const data = await uploadAndParse(formData);
+      setFileToken(data.file_token || null);
       setLines(data.lines);
 
       // pre-fill จาก Word heading style ที่ตรวจพบในไฟล์ (ถ้ามี) - เป็นแค่
@@ -381,8 +439,12 @@ function UploadDocument() {
           document_name: documentName.trim(),
           document_type: file.name.toLowerCase().endsWith(".pdf") ? "pdf" : "docx",
           category_id: Number(categoryId),
+          program_id: programId ? Number(programId) : null,
           user_id: user.user_id,
           description: description.trim() || null,
+          source_url: sourceUrl.trim() || null,
+          file_name: file.name,
+          file_token: fileToken,
         }),
       });
       if (!res.ok) {
@@ -404,7 +466,10 @@ function UploadDocument() {
     setStep("meta");
     setDocumentName("");
     setCategoryId("");
+    setProgramId("");
     setDescription("");
+    setSourceUrl("");
+    setFileToken(null);
     setFile(null);
     setUploadProgress(0);
     setLines([]);
@@ -550,6 +615,40 @@ function UploadDocument() {
                       </div>
 
                       <div className="upload-field">
+                        <label>สาขาวิชา <span className="upload-optional">ไม่บังคับ</span></label>
+                        <select
+                          value={programId}
+                          disabled={isParsing}
+                          onChange={(e) => setProgramId(e.target.value)}
+                        >
+                          <option value="">ทั้งคณะ / ไม่ระบุสาขา</option>
+                          {programs.map((p) => (
+                            <option key={p.program_id} value={p.program_id}>
+                              {p.program_name}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="category-manage-row">
+                          <span className="upload-field-hint">
+                            ช่วยให้ค้นหาเจอเมื่อคำถามระบุชื่อสาขา
+                          </span>
+                          <button
+                            type="button"
+                            className="category-add-button"
+                            onClick={() => {
+                              setProgramCreateError("");
+                              setNewProgramName("");
+                              setShowProgramModal(true);
+                            }}
+                            disabled={isParsing}
+                          >
+                            ＋ เพิ่มสาขา
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="upload-field">
                         <label>คำอธิบาย <span className="upload-optional">ไม่บังคับ</span></label>
                         <textarea
                           rows="4"
@@ -558,6 +657,22 @@ function UploadDocument() {
                           disabled={isParsing}
                           onChange={(e) => setDescription(e.target.value)}
                         />
+                      </div>
+
+                      <div className="upload-field">
+                        <label>
+                          URL หน้าเว็บต้นทาง <span className="upload-optional">ไม่บังคับ</span>
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="เช่น https://www.example.ac.th/..."
+                          value={sourceUrl}
+                          disabled={isParsing}
+                          onChange={(e) => setSourceUrl(e.target.value)}
+                        />
+                        <span className="upload-field-hint">
+                          ใส่ลิงก์หน้าเว็บไซต์คณะที่ดาวน์โหลดเอกสารนี้มา
+                        </span>
                       </div>
                     </section>
                   </div>
@@ -663,6 +778,76 @@ function UploadDocument() {
                         >
                           {isCreatingCategory && <Spinner />}
                           {isCreatingCategory ? "กำลังบันทึก..." : "บันทึกหมวดหมู่"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {showProgramModal && (
+                <div
+                  className="category-modal-backdrop"
+                  onMouseDown={() => { if (!isCreatingProgram) setShowProgramModal(false); }}
+                >
+                  <div
+                    className="category-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="program-modal-title"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="category-modal-header">
+                      <div>
+                        <h2 id="program-modal-title">เพิ่มสาขาวิชา</h2>
+                        <p>สร้างสาขาใหม่สำหรับผูกกับเอกสาร</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="category-modal-close"
+                        onClick={() => setShowProgramModal(false)}
+                        disabled={isCreatingProgram}
+                        aria-label="ปิด"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleCreateProgram}>
+                      <div className="upload-field">
+                        <label>ชื่อสาขา <span className="upload-required">*</span></label>
+                        <input
+                          autoFocus
+                          type="text"
+                          value={newProgramName}
+                          placeholder="เช่น สาขาวิชาสถิติประยุกต์และวิทยาการข้อมูล"
+                          maxLength={255}
+                          disabled={isCreatingProgram}
+                          onChange={(e) => setNewProgramName(e.target.value)}
+                        />
+                        <span className="upload-field-hint">
+                          ใช้ชื่อเต็มของสาขา เพราะชื่อนี้จะถูกนำไปใช้ตอนค้นหา
+                        </span>
+                      </div>
+
+                      {programCreateError && <div className="upload-error" role="alert">⚠️ {programCreateError}</div>}
+
+                      <div className="category-modal-actions">
+                        <button
+                          type="button"
+                          className="upload-secondary-action"
+                          onClick={() => setShowProgramModal(false)}
+                          disabled={isCreatingProgram}
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="submit"
+                          className="upload-primary-action"
+                          disabled={isCreatingProgram || !newProgramName.trim()}
+                        >
+                          {isCreatingProgram && <Spinner />}
+                          {isCreatingProgram ? "กำลังบันทึก..." : "บันทึกสาขา"}
                         </button>
                       </div>
                     </form>

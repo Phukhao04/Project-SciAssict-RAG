@@ -29,6 +29,7 @@ PyJWT>=2.8                    # import jwt ใน utils/security.py
 
 # ---- LLM ----
 anthropic>=0.39              # utils/llm.py (ชี้ base_url ไป ai.psu.blue)
+openai>=1.0                  # utils/llm.py (ชี้ base_url ไป ai.psu.blue, OpenAI-compatible endpoint)
 
 # ---- Embedding ----
 sentence-transformers>=3.0   # utils/embedding.py (ดึง torch + transformers มาด้วย)
