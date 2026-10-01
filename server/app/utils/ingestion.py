@@ -3,8 +3,7 @@ import re
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-
-from .embedding import get_embedder
+from .embedding import get_embedder, build_embedding_text
 
 
 def clean_text(raw: str) -> str:
@@ -23,19 +22,18 @@ def _insert_document_row(
     category_id: int,
     user_id: int,
     description: str | None,
-    source_url: str | None = None,
+    program_id: int | None = None,
     file_name: str | None = None,
     file_path: str | None = None,
+    source_url: str | None = None,
 ) -> int:
-    """Insert แถวใน `document` แล้วคืน document_id ที่ได้
-    เรียกจาก manual_ingest.py -> confirm_manual_ingest()"""
     insert_doc_sql = text("""
         INSERT INTO document
-        (document_name, document_type, category_id, user_id, upload_date, description,
-         source_url, file_name, file_path)
+        (document_name, document_type, category_id, user_id, upload_date,
+         description, program_id, file_name, file_path, source_url)
         VALUES
-        (:document_name, :document_type, :category_id, :user_id, NOW(), :description,
-         :source_url, :file_name, :file_path)
+        (:document_name, :document_type, :category_id, :user_id, NOW(),
+         :description, :program_id, :file_name, :file_path, :source_url)
         """)
 
     result = db.execute(
@@ -46,9 +44,10 @@ def _insert_document_row(
             "category_id": category_id,
             "user_id": user_id,
             "description": description,
-            "source_url": source_url,
+            "program_id": program_id,
             "file_name": file_name,
             "file_path": file_path,
+            "source_url": source_url,
         },
     )
     document_id = result.lastrowid
@@ -56,13 +55,20 @@ def _insert_document_row(
     return document_id
 
 
-def _embed_and_insert_chunks(db: Session, document_id: int, chunks: list[dict]) -> int:
-    """Embed แล้ว insert chunk ทั้งหมดลง document_chunk คืนจำนวน chunk
-    ที่ insert สำเร็จ - เรียกจาก manual_ingest.py -> confirm_manual_ingest()"""
+def _embed_and_insert_chunks(
+    db: Session,
+    document_id: int,
+    chunks: list[dict],
+    document_name: str = "",
+    program_name: str = "",
+) -> int:
     if not chunks:
         return 0
 
-    texts = [clean_text(c["parent_text"]) for c in chunks]
+    texts = [
+        clean_text(build_embedding_text(program_name, document_name, c["parent_text"]))
+        for c in chunks
+    ]
 
     embedder = get_embedder()
     embeddings = embedder.encode(

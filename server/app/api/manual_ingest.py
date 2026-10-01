@@ -46,10 +46,7 @@ from app.utils.ingest_manual import (
     parse_raw_pdf,
 )
 from app.utils.ingestion import _embed_and_insert_chunks, _insert_document_row
-
-# from app.api.deps import require_admin  # เปิดใช้ถ้าอยากบังคับ admin
-# เท่านั้น (rag.py endpoint /documents/upload ปัจจุบันก็ไม่ได้บังคับ
-# require_admin เหมือนกัน - ตามให้ตรง pattern เดิมของไฟล์นั้นไว้ก่อน)
+from app.crud.document_crud import get_program_name
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +66,7 @@ MAX_FILE_SIZE_MB = 20
 
 
 # ---------- Endpoints ----------
+
 
 @router.post("/parse-raw", response_model=ParseRawResponse)
 async def parse_raw(
@@ -139,7 +137,9 @@ def download_document(document_id: int, db: Session = Depends(get_db)):
     from sqlalchemy import text
 
     row = db.execute(
-        text("SELECT file_name, file_path FROM document WHERE document_id = :document_id"),
+        text(
+            "SELECT file_name, file_path FROM document WHERE document_id = :document_id"
+        ),
         {"document_id": document_id},
     ).first()
 
@@ -170,13 +170,9 @@ async def build_chunks(body: BuildChunksRequest):
         )
 
     raw_lines = [
-        RawLine(index=ln.index, kind=ln.kind, text=ln.text)
-        for ln in body.lines
+        RawLine(index=ln.index, kind=ln.kind, text=ln.text) for ln in body.lines
     ]
-    marks = [
-        HeadingMark(line_index=m.line_index, level=m.level)
-        for m in body.marks
-    ]
+    marks = [HeadingMark(line_index=m.line_index, level=m.level) for m in body.marks]
 
     chunks = build_chunks_from_marks(raw_lines, marks)
 
@@ -212,7 +208,7 @@ def confirm_manual_ingest(
         )
 
     try:
-        if not re.fullmatch(r"[a-f0-9]{32}", body.file_token):
+        if not re.fullmatch(r"[a-f0-9]{32}", body.file_token or ""):
             raise HTTPException(status_code=400, detail="รหัสไฟล์ไม่ถูกต้อง")
 
         pending_path = PENDING_DIR / f"{body.file_token}.upload"
@@ -224,9 +220,7 @@ def confirm_manual_ingest(
 
         safe_name = re.sub(r"[^A-Za-z0-9._ก-๙ -]", "_", body.file_name).strip()
         safe_name = safe_name or "document"
-        final_name = f"{body.file_token}_{safe_name}"
-        final_path = DOCUMENT_DIR / final_name
-        shutil.move(str(pending_path), str(final_path))
+        final_path = DOCUMENT_DIR / f"{body.file_token}_{safe_name}"
         file_path = str(final_path.relative_to(BASE_DIR)).replace(os.sep, "/")
 
         document_id = _insert_document_row(
@@ -236,17 +230,26 @@ def confirm_manual_ingest(
             body.category_id,
             body.user_id,
             body.description,
-            body.source_url,
-            body.file_name,
-            file_path,
+            body.program_id,
+            file_name=body.file_name,
+            file_path=file_path,
+            source_url=body.source_url,
         )
 
         chunks = [
             {"chunk_text": c.chunk_text, "parent_text": c.parent_text}
             for c in body.chunks
         ]
-        chunks_inserted = _embed_and_insert_chunks(db, document_id, chunks)
+        program_name = get_program_name(db, body.program_id)
+        chunks_inserted = _embed_and_insert_chunks(
+            db, document_id, chunks, body.document_name, program_name
+        )
 
+        # ย้ายไฟล์เป็นขั้นสุดท้าย ถ้าขั้นก่อนหน้าพัง ไฟล์ยังอยู่ใน pending ให้ลองใหม่ได้
+        shutil.move(str(pending_path), str(final_path))
+
+    except HTTPException:
+        raise
     except Exception as exc:
         db.rollback()
         logger.exception("[confirm-manual] บันทึกเอกสารไม่สำเร็จ")

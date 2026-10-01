@@ -16,7 +16,7 @@ class RawLine:
     text: str
     # ถ้าไฟล์มี Word heading style (Heading 1/2/...) ติดมาอยู่แล้ว เก็บ
     # level ไว้เป็น "คำแนะนำเริ่มต้น" ให้ frontend pre-fill การ mark ให้
-    # แอดมินตรวจสอบ/แก้ไขได้ ไม่ใช่ apply ตรงเข้า DB เลย - แอดมินยังต้อง
+    # แอดมินตรวจสอบ/แก้ไขต่อ ไม่ใช่ apply ตรงเข้า DB เลย - แอดมินยังต้อง
     # ตรวจสอบผ่าน UI เหมือนเดิมเป๊ะ (ต่างจาก Docling เดิมที่ auto-apply
     # โดยไม่มีจุดให้ตรวจสอบก่อน) ค่า 0 = ไม่มี style ให้อ้างอิง หรือเป็น
     # PDF ที่ไม่มีข้อมูล style ให้อ่านเลย
@@ -177,15 +177,36 @@ def build_chunks_from_marks(
 
     flush_group()
 
+    def _heading_str(heading: tuple) -> str:
+        return " > ".join(heading) if heading else ""
+
+    # หัวข้อที่มีเนื้อหาจริงอย่างน้อย 1 chunk ในเอกสารนี้ - รู้ล่วงหน้าได้
+    # ทั้งเอกสารตรงนี้เพราะ groups ถูกสร้างครบทุกก้อนแล้วก่อนวนสร้าง chunk
+    # จริงด้านล่าง (ไม่ต้อง look-ahead ระหว่างวน)
+    real_headings = {_heading_str(h) for h, body in groups if body}
+
     results: list[dict] = []
     for heading, body_lines in groups:
-        heading_str = " > ".join(heading) if heading else ""
+        heading_str = _heading_str(heading)
 
         if not body_lines:
-            # heading ไม่มีเนื้อหาใต้เลย - ใช้ heading เองเป็นเนื้อหาแทน
-            # ปล่อย chunk_text ว่างเปล่า (ว่างเปล่าไม่มีประโยชน์ตอน embed
-            # และ heading tuple ว่างพร้อม body ว่างจะไม่มีทางเกิดขึ้นได้อยู่
-            # แล้วจาก logic ด้านบน จึงไม่ต้องกัน heading_str ว่างซ้ำอีก)
+            # heading ไม่มีเนื้อหาใต้เลย - เช็คก่อนว่าซ้ำซ้อนกับ chunk อื่น
+            # ที่มีเนื้อหาจริงหรือไม่ (กรณี mark heading ติดกัน เช่น H1
+            # ตามด้วย H2 ทันทีโดยไม่มีเนื้อหาคั่น) ถ้าซ้ำซ้อน หัวข้อนี้ถูก
+            # พกไปกับ heading path ของ chunk ลูกอยู่แล้ว ("A > B" ใน
+            # parent_text ของ chunk ลูก) การสร้าง chunk แยกอีกอันที่มีแต่
+            # ข้อความหัวข้อล้วนๆ เป็นการซ้ำซ้อนที่ไม่มีประโยชน์ แถมทำให้
+            # retrieval แย่ลง (chunk สั้นๆ ที่มีแต่คำหัวข้อ ชนะ vector
+            # search จากคำถามที่ใช้คำตรงกับหัวข้อ แต่ไม่มีคำตอบอยู่ข้างใน)
+            # ตัดทิ้งเฉพาะกรณีซ้ำซ้อนแบบนี้เท่านั้น - หัวข้อที่ไม่มีเนื้อหา
+            # ที่ไหนเลยในเอกสาร (orphan จริง) ยังคงเก็บไว้เหมือนเดิม เพื่อ
+            # กันหัวข้อหาย (เหตุผลเดิมของ has_current_heading ด้านบน)
+            is_redundant = any(
+                rh == heading_str or rh.startswith(heading_str + " > ")
+                for rh in real_headings
+            )
+            if is_redundant:
+                continue
             results.append({"chunk_text": heading_str, "parent_text": heading_str})
             continue
 
