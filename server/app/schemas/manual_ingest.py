@@ -48,3 +48,4 @@ class ConfirmManualIngestRequest(BaseModel):
     source_url: str | None = None
     file_name: str
     file_token: str
+    program_id: int | None = None

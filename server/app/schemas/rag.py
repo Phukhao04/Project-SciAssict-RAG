@@ -75,3 +75,12 @@ class QueryActivityItem(BaseModel):
     day: str
     date: str
     count: int
+
+
+class ProgramCreateRequest(BaseModel):
+    program_name: str = Field(..., min_length=1, max_length=255)
+
+
+class ProgramResponse(BaseModel):
+    program_id: int
+    program_name: str

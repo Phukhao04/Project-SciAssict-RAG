@@ -9,6 +9,8 @@ from app.schemas.rag import (
     IngestResponse,
     CategoryResponse,
     CategoryCreateRequest,
+    ProgramResponse,
+    ProgramCreateRequest,
     DocumentListItem,
     DocumentDetailResponse,
     StatsResponse,
@@ -20,6 +22,8 @@ from app.crud.chat_crud import create_session, save_message
 from app.crud.document_crud import (
     get_all_categories,
     create_category,
+    get_all_programs,
+    create_program,
     delete_document,
     get_all_documents,
     get_document_detail,
@@ -45,7 +49,18 @@ def add_category(
         return create_category(db, payload.category_name)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    
+@router.get("/programs", response_model=list[ProgramResponse])
+def list_programs(db: Session = Depends(get_db)):
+    return get_all_programs(db)
 
+
+@router.post("/programs", response_model=ProgramResponse, status_code=201)
+def add_program(payload: ProgramCreateRequest, db: Session = Depends(get_db)):
+    try:
+        return create_program(db, payload.program_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @router.get("/documents/{document_id}", response_model=DocumentDetailResponse)
 def get_document(document_id: int, db: Session = Depends(get_db)):

@@ -6,6 +6,7 @@ Embedding model wrapper
 เพื่อให้การค้นหา Retrieval มีความแม่นยำมากขึ้น
 """
 
+import re
 from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "BAAI/bge-m3"
@@ -56,3 +57,16 @@ def embed_document(text: str) -> list[float]:
     )
 
     return embedding.tolist()
+
+
+def build_embedding_text(
+    program_name: str, document_name: str, parent_text: str
+) -> str:
+    """ข้อความที่ใช้สร้าง vector เท่านั้น (ไม่เก็บลง DB)
+    ใส่ชื่อสาขา + ชื่อเอกสารนำหน้า ให้ vector รู้ว่า chunk นี้เป็นของสาขาไหน"""
+
+    doc = re.sub(
+        r"\.(docx|pdf)$", "", (document_name or "").strip(), flags=re.IGNORECASE
+    )
+    prefix = " | ".join(p for p in [(program_name or "").strip(), doc] if p)
+    return f"{prefix}\n{parent_text}" if prefix else parent_text
