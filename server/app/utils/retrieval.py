@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from dataclasses import dataclass
 
 from sqlalchemy import text
@@ -65,12 +66,24 @@ def _fetch_sibling_chunks(
     ]
 
 
-def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChunk]:
+def retrieve(
+    db: Session,
+    query_text_str: str,
+    k: int = 5,
+    program_hint: str | None = None,
+    hybrid: bool = False,
+    keyword_boost: bool = False,
+) -> list[RetrievedChunk]:
     """
     คืนค่า chunk ที่เกี่ยวข้องกับคำถาม ด้วย vector search (cosine distance)
     เป็นหลัก แล้วเสริมด้วย chunk ข้างเคียงที่มี heading เดียวกัน (sibling
     expansion) เพื่อรวมเนื้อหาที่ถูกตัดแบ่งเพราะเกิน max_chars ตอน ingest
     ให้ครบก่อนส่งเข้า LLM
+
+    ถ้า program_hint ถูกส่งมา จะกรอง document_name ก่อนทำ vector ranking
+    เพื่อไม่ให้เอกสารคนละหลักสูตรเข้ามาแย่งอันดับกัน
+
+    ถ้า hybrid=True จะใช้ keyword match ช่วยจัดอันดับ candidate จาก vector search
     """
     query_embedding = embed_query(query_text_str)
 
@@ -87,17 +100,30 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
         FROM document_chunk dc
         JOIN document d
             ON dc.document_id = d.document_id
+        WHERE (:program_hint IS NULL OR d.document_name LIKE :program_pattern)
         ORDER BY distance
-        LIMIT :k
+        LIMIT :candidate_k
     """)
 
     rows = db.execute(
         sql,
         {
             "query_embedding": json.dumps(query_embedding),
-            "k": k,
+            "candidate_k": max(k * 10, 50) if (hybrid or keyword_boost) else k,
+            "program_hint": program_hint,
+            "program_pattern": f"%{program_hint}%" if program_hint else None,
         },
     ).fetchall()
+
+    if (hybrid or keyword_boost) and rows:
+        query_norm = query_text_str.strip().lower()
+        terms = [t for t in re.split(r"\\s+", query_norm) if len(t) >= 2]
+
+        def keyword_score(row):
+            haystack = f"{row.parent_text} {row.chunk_text}".lower()
+            return sum(1 for term in terms if term in haystack)
+
+        rows = sorted(rows, key=lambda row: (-keyword_score(row), row.distance))[:k]
 
     # ใช้ dict คีย์ด้วย chunk_id กันซ้ำ ระหว่าง top-k เดิมกับ sibling ที่ดึงมาเสริม
     results: dict[int, RetrievedChunk] = {
