@@ -16,9 +16,9 @@ from app.schemas.rag import (
     StatsResponse,
     QueryActivityItem,
 )
-from app.utils.llm import generate_answer
+from app.utils.llm import generate_answer, rewrite_query
 from app.utils.retrieval import retrieve
-from app.crud.chat_crud import create_session, save_message
+from app.crud.chat_crud import create_session, save_message, get_recent_messages
 from app.crud.document_crud import (
     get_all_categories,
     create_category,
@@ -32,6 +32,9 @@ from app.crud.document_crud import (
 )
 
 router = APIRouter(prefix="/api/rag", tags=["RAG"])
+
+# จำนวนข้อความย้อนหลังที่ใช้เป็นบริบทสนทนา (6 = 3 รอบถาม-ตอบ)
+HISTORY_MESSAGE_LIMIT = 6
 
 
 @router.get("/categories", response_model=list[CategoryResponse])
@@ -73,13 +76,22 @@ def get_document(document_id: int, db: Session = Depends(get_db)):
 @router.post("/chat", response_model=ChatResponse)
 def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     session_id = payload.session_id
+    history: list[dict] = []
     if session_id is None:
         # ยังไม่มี session -> สร้างใหม่ ใช้คำถามแรกเป็นชื่อ session
         session_id = create_session(db, payload.user_id, payload.question)
+    else:
+        # session เดิม -> โหลดประวัติก่อนบันทึกคำถามปัจจุบัน (ไม่งั้นคำถามจะซ้ำในประวัติ)
+        history = get_recent_messages(db, session_id, limit=HISTORY_MESSAGE_LIMIT)
 
     try:
-        chunks = retrieve(db, payload.question, k=payload.k)
-        answer = generate_answer(db, payload.question, k=payload.k, retrieved=chunks)
+        # คำถามต่อเนื่อง -> เขียนใหม่ให้สมบูรณ์ในตัวเองก่อน retrieve
+        # (ไม่มีประวัติ = คืนคำถามเดิม ไม่เสียเวลาเรียก LLM เพิ่ม)
+        search_query = rewrite_query(payload.question, history)
+        chunks = retrieve(db, search_query, k=payload.k)
+        answer = generate_answer(
+            db, payload.question, k=payload.k, retrieved=chunks, history=history
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="ระบบตอบคำถามขัดข้องชั่วคราว กรุณาลองใหม่"

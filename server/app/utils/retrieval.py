@@ -98,7 +98,19 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
             "k": k,
         },
     ).fetchall()
+    for rank, row in enumerate(rows, start=1):
+        print(f"chunk_id   : {row.chunk_id}")
+        print(f"document_id: {row.document_id}")
+        print(f"distance   : {row.distance:.6f}")
+    heading = extract_chunk_heading(
+    row.parent_text,
+    row.chunk_text
+)
 
+    print(f"heading    : {heading}")
+
+    preview = (row.chunk_text or "").replace("\n", " ")
+    print(f"chunk_text : {preview[:500]}")
     # ใช้ dict คีย์ด้วย chunk_id กันซ้ำ ระหว่าง top-k เดิมกับ sibling ที่ดึงมาเสริม
     results: dict[int, RetrievedChunk] = {
         row.chunk_id: RetrievedChunk(

@@ -54,6 +54,28 @@ def get_messages_by_session(db: Session, session_id: int) -> list[dict]:
     ]
 
 
+def get_recent_messages(db: Session, session_id: int, limit: int = 6) -> list[dict]:
+    """
+    ดึงข้อความล่าสุด `limit` ข้อความของ session (เก่า -> ใหม่) สำหรับใช้เป็น
+    ประวัติสนทนาใน conversational RAG
+
+    เรียงด้วย message_id แทน timestamp เพราะ NOW() ละเอียดแค่ระดับวินาที
+    คำถามกับคำตอบที่บันทึกติดกันอาจได้ timestamp เท่ากัน ลำดับจะสลับได้
+    """
+    sql = text("""
+        SELECT sender_role, message_text
+        FROM messages
+        WHERE session_id = :session_id
+        ORDER BY message_id DESC
+        LIMIT :limit
+    """)
+    rows = db.execute(sql, {"session_id": session_id, "limit": limit}).fetchall()
+    return [
+        {"role": r.sender_role, "text": r.message_text}
+        for r in reversed(rows)
+    ]
+
+
 def save_message(
     db: Session, session_id: int, user_id: int, sender_role: str, text_content: str,
     sources: list[dict] | None = None,
