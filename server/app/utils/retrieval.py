@@ -1,18 +1,21 @@
 import json
-import logging
+import re
 from dataclasses import dataclass
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from .embedding import embed_query
 from .chunk_heading import extract_chunk_heading
+from .embedding import embed_query
 
-logger = logging.getLogger(__name__)
 
-# รัศมี chunk_id ที่จะมองหา "เศษที่เหลือ" ของ heading เดียวกัน - เผื่อไว้พอ
-# สำหรับ heading ที่เนื้อหายาวจน max_chars (1500) ตัดเป็นหลาย chunk ติดกัน
+# Include nearby chunks when a heading's content was split during ingestion.
 SIBLING_SEARCH_RADIUS = 5
+
+# Boost exact matches for course codes found in the query.
+COURSE_CODE_PATTERN = re.compile(r"(?<!\d)\d{3}-\d{3}[A-Za-z0-9]*")
+MAX_CODES_PER_QUERY = 2
+MAX_KEYWORD_CHUNKS = 3
 
 
 @dataclass
@@ -25,22 +28,54 @@ class RetrievedChunk:
     file_name: str | None
     source_url: str | None
     distance: float
-    match_type: str = "vector"  # "vector" = มาจาก similarity search ตรงๆ, "sibling" = ถูกดึงมาเสริมเพราะ heading เดียวกันกับ chunk ที่ match
+    match_type: str = "vector"
+
+
+def _fetch_code_matches(db: Session, query_text_str: str, query_embedding: list) -> list:
+    """Fetch and rank chunks matching course codes in the query."""
+    codes = list(dict.fromkeys(COURSE_CODE_PATTERN.findall(query_text_str)))
+    codes = codes[:MAX_CODES_PER_QUERY]
+    if not codes:
+        return []
+
+    sql = text("""
+        SELECT
+            dc.chunk_id,
+            dc.chunk_text,
+            dc.parent_text,
+            dc.document_id,
+            d.document_name,
+            d.file_name,
+            d.source_url,
+            vec_cosine_distance(dc.embedding_vector, :query_embedding) AS distance
+        FROM document_chunk dc
+        JOIN document d
+            ON dc.document_id = d.document_id
+        WHERE dc.parent_text LIKE :pattern
+        ORDER BY distance
+        LIMIT :lim
+    """)
+
+    found: dict[int, object] = {}
+    for code in codes:
+        rows = db.execute(
+            sql,
+            {
+                "query_embedding": json.dumps(query_embedding),
+                "pattern": f"%{code}%",
+                "lim": MAX_KEYWORD_CHUNKS,
+            },
+        ).fetchall()
+        for row in rows:
+            found.setdefault(row.chunk_id, row)
+
+    return sorted(found.values(), key=lambda r: r.distance)[:MAX_KEYWORD_CHUNKS]
 
 
 def _fetch_sibling_chunks(
     db: Session, document_id: int, center_chunk_id: int, heading: str
 ) -> list:
-    """
-    ดึง chunk ที่ chunk_id อยู่ในรัศมี SIBLING_SEARCH_RADIUS ของเอกสาร
-    เดียวกัน แล้วกรองเฉพาะอันที่ extract heading ออกมาแล้วตรงกับ heading
-    ของ chunk ศูนย์กลางเป๊ะ
-
-    ใช้จับกรณี: เนื้อหาใต้ heading เดียวกันยาวเกิน max_chars ตอน ingest
-    (ดู build_chunks_from_marks ใน ingest_manual.py) เลยถูกตัดเป็นหลาย
-    chunk แยกกันใน DB - ถ้า vector search เจอแค่ชิ้นเดียว LLM จะเห็น
-    เนื้อหาไม่ครบ คำตอบขาดหายโดยไม่รู้ตัว
-    """
+    """Fetch nearby chunks that share the center chunk's heading."""
     sql = text("""
         SELECT chunk_id, chunk_text, parent_text
         FROM document_chunk
@@ -66,12 +101,7 @@ def _fetch_sibling_chunks(
 
 
 def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChunk]:
-    """
-    คืนค่า chunk ที่เกี่ยวข้องกับคำถาม ด้วย vector search (cosine distance)
-    เป็นหลัก แล้วเสริมด้วย chunk ข้างเคียงที่มี heading เดียวกัน (sibling
-    expansion) เพื่อรวมเนื้อหาที่ถูกตัดแบ่งเพราะเกิน max_chars ตอน ingest
-    ให้ครบก่อนส่งเข้า LLM
-    """
+    """Retrieve vector matches, boost course-code matches, and expand siblings."""
     query_embedding = embed_query(query_text_str)
 
     sql = text("""
@@ -91,27 +121,21 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
         LIMIT :k
     """)
 
-    rows = db.execute(
+    vector_rows = db.execute(
         sql,
         {
             "query_embedding": json.dumps(query_embedding),
             "k": k,
         },
     ).fetchall()
-    for rank, row in enumerate(rows, start=1):
-        print(f"chunk_id   : {row.chunk_id}")
-        print(f"document_id: {row.document_id}")
-        print(f"distance   : {row.distance:.6f}")
-    heading = extract_chunk_heading(
-    row.parent_text,
-    row.chunk_text
-)
 
-    print(f"heading    : {heading}")
+    # Put exact course-code matches first, then fill the remaining slots by vector rank.
+    keyword_rows = _fetch_code_matches(db, query_text_str, query_embedding)[:k]
+    keyword_ids = {r.chunk_id for r in keyword_rows}
+    rows = list(keyword_rows) + [
+        r for r in vector_rows if r.chunk_id not in keyword_ids
+    ][: max(k - len(keyword_rows), 0)]
 
-    preview = (row.chunk_text or "").replace("\n", " ")
-    print(f"chunk_text : {preview[:500]}")
-    # ใช้ dict คีย์ด้วย chunk_id กันซ้ำ ระหว่าง top-k เดิมกับ sibling ที่ดึงมาเสริม
     results: dict[int, RetrievedChunk] = {
         row.chunk_id: RetrievedChunk(
             chunk_id=row.chunk_id,
@@ -130,7 +154,7 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
     for row in rows:
         heading = extract_chunk_heading(row.parent_text, row.chunk_text)
         if not heading:
-            continue  # chunk นี้ไม่มี heading กำกับ (เช่นเนื้อหาก่อนหัวข้อแรกของเอกสาร) ไม่มีทางหา sibling ได้
+            continue
 
         for sib in _fetch_sibling_chunks(db, row.document_id, row.chunk_id, heading):
             if sib.chunk_id in results:
@@ -143,11 +167,10 @@ def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChun
                 document_name=row.document_name,
                 file_name=row.file_name,
                 source_url=row.source_url,
-                distance=row.distance,  # ใช้ distance ของ chunk ต้นทางที่ match จริง เพราะ sibling เองไม่ได้ผ่าน vector search
+                # Keep the distance of the vector-matched chunk.
+                distance=row.distance,
                 match_type="sibling",
             )
 
-    # เรียงตามลำดับจริงในเอกสาร (document_id, chunk_id) แทนการเรียงตาม
-    # distance เดิม - กันไม่ให้ส่วนที่ 2 ของ heading เดียวกันโผล่ก่อนส่วนที่ 1
-    # ใน prompt ซึ่งจะทำให้ LLM อ่านเนื้อหาสลับลำดับกัน
+    # Preserve document order so split sections reach the LLM in sequence.
     return sorted(results.values(), key=lambda c: (c.document_id, c.chunk_id))

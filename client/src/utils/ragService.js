@@ -1,7 +1,7 @@
 import AppConfig from "../config/appConfig";
 import { authHeaders } from "./authHeaders";
 
-export async function chatRequest(question, userId, sessionId = null, k = 5) {
+export async function chatRequest(question, userId, sessionId = null, k = 8) {
   const response = await fetch(`${AppConfig.apiBaseUri}/rag/chat`, {
     method: "POST",
     headers: {

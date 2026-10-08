@@ -4,20 +4,21 @@ import logging
 import httpx
 from sqlalchemy.orm import Session
 
-from .retrieval import retrieve
-from app.prompts.rag_system_prompt import SYSTEM_PROMPT, PROMPT_VERSION
 from app.config import settings
+from app.prompts.rag_system_prompt import PROMPT_VERSION, SYSTEM_PROMPT
+
+from .retrieval import retrieve
 
 logger = logging.getLogger(__name__)
 
 DOTBLUE_CHAT_URL = "https://ai.psu.blue/v1/chat/completions"
 
-# จำกัดความยาวข้อความแต่ละอันในประวัติ กัน prompt บวม (คำตอบบอทมักยาวสุด)
+# Limit each history message to keep the prompt concise.
 HISTORY_CHAR_LIMIT = 400
 
 
 def _build_context_block(index: int, chunk) -> str:
-    """สร้าง <context> block เดียว จาก 1 chunk ที่ retrieve มาได้ ใช้ parent_text"""
+    """Format one retrieved chunk as a context block."""
     return (
         f'<context index="{index}" source="{chunk.document_name}">\n'
         f"{chunk.parent_text}\n"
@@ -36,8 +37,12 @@ def _format_history(history: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _build_prompt(question: str, retrieved: list, history: list[dict] | None = None) -> str:
-    """ประกอบ context blocks + (ประวัติสนทนา) + คำถาม เข้าเป็น prompt เดียว"""
+def _build_prompt(
+    question: str,
+    retrieved: list,
+    history: list[dict] | None = None,
+) -> str:
+    """Combine retrieved context, conversation history, and question."""
     context = "\n\n".join(
         _build_context_block(i, chunk)
         for i, chunk in enumerate(retrieved, start=1)
@@ -77,10 +82,6 @@ If the answer is not there, respond exactly: "ไม่พบข้อมูล�
 
 
 def _parse_sse_stream(body: str) -> str:
-    """dotBlue ส่งกลับมาเป็น Server-Sent Events
-    (บรรทัด 'data: {...}' หลายก้อนต่อกัน)
-    แทน JSON ก้อนเดียว แม้จะขอ stream=false ก็ตาม
-    """
     full_text = ""
 
     for line in body.splitlines():
@@ -108,87 +109,6 @@ def _parse_sse_stream(body: str) -> str:
         full_text += delta.get("content") or ""
 
     return full_text
-
-
-def _extract_answer_text(body_text: str) -> str:
-    """แกะข้อความตอบจาก response ทั้งแบบ JSON ก้อนเดียวและ SSE (คืน "" ถ้าแกะไม่ได้)"""
-    try:
-        data = json.loads(body_text)
-        return data["choices"][0]["message"]["content"].strip()
-    except (json.JSONDecodeError, KeyError, IndexError, TypeError):
-        pass
-
-    if "data:" in body_text:
-        return _parse_sse_stream(body_text).strip()
-
-    return ""
-
-
-def rewrite_query(
-    question: str,
-    history: list[dict] | None,
-    model: str = "PSU-LLM/psu-gemma",
-) -> str:
-    """
-    แปลงคำถามต่อเนื่อง (เช่น "แล้วมีกี่หน่วยกิต", "วิชานี้ใครสอน") ให้เป็นคำถาม
-    ที่สมบูรณ์ในตัวเอง ก่อนเอาไป retrieve เพราะ vector search ไม่เห็นประวัติแชท
-    ถ้าไม่มีประวัติ หรือ rewrite พลาดด้วยเหตุใดก็ตาม -> คืนคำถามเดิม (fail-safe)
-    """
-    if not history:
-        return question
-
-    prompt = f"""Below is a conversation between a user and an assistant for the Faculty of Science, PSU, followed by the user's latest question.
-
-Rewrite the latest question as ONE standalone Thai question that can be understood without the conversation.
-- Replace pronouns and omitted subjects (e.g. "วิชานี้", "หลักสูตรนั้น", "แล้วปี 2 ล่ะ") with the specific program, course code or topic from the conversation.
-- Keep every course code, number and name exactly as written.
-- If the latest question is already standalone, return it unchanged.
-- Do NOT answer the question. Output only the rewritten question, nothing else.
-
-<conversation>
-{_format_history(history)}
-</conversation>
-
-<latest_question>
-{question}
-</latest_question>"""
-
-    try:
-        http_response = httpx.post(
-            DOTBLUE_CHAT_URL,
-            headers={
-                "Authorization": f"Bearer {settings.dotblue_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model,
-                "max_tokens": 200,
-                "stream": False,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-            timeout=30,
-            follow_redirects=True,
-        )
-    except Exception:
-        logger.exception("[llm] rewrite_query เรียก LLM ไม่สำเร็จ ใช้คำถามเดิมแทน")
-        return question
-
-    if http_response.status_code >= 400:
-        logger.error(
-            "[llm] rewrite_query status=%s ใช้คำถามเดิมแทน", http_response.status_code
-        )
-        return question
-
-    rewritten = _extract_answer_text(http_response.text)
-    rewritten = rewritten.strip().strip('"').strip("'").strip() if rewritten else ""
-    # เอาแค่บรรทัดแรก กันโมเดลพ่นคำอธิบายต่อท้าย
-    rewritten = rewritten.splitlines()[0].strip() if rewritten else ""
-
-    if not rewritten or len(rewritten) > 300:
-        return question
-
-    logger.info("[llm] rewrite_query: %r -> %r", question, rewritten)
-    return rewritten
 
 
 def generate_answer(
@@ -252,14 +172,12 @@ def generate_answer(
 
     body_text = http_response.text
 
-    # ตอบแบบ JSON ก้อนเดียว
     try:
         data = json.loads(body_text)
         return data["choices"][0]["message"]["content"].strip()
     except (json.JSONDecodeError, KeyError, IndexError, TypeError):
         pass
 
-    # ตอบแบบ SSE stream
     if "data:" in body_text:
         answer = _parse_sse_stream(body_text).strip()
 

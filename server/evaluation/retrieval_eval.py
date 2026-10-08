@@ -44,7 +44,7 @@ _STRIP = re.compile(r"[\s|\u200b\u200c\u200d\ufeff]+")
 
 
 def norm(s: str | None) -> str:
-    """ตัดช่องว่าง/pipe (ที่มาจากตาราง) แล้ว lower — ทั้งฝั่ง keyword และฝั่ง chunk"""
+    """Normalize text for keyword matching."""
     s = unicodedata.normalize("NFKC", s or "")
     return _STRIP.sub("", s).lower()
 
@@ -63,12 +63,21 @@ def load_corpus(db) -> list[dict]:
         """)
     ).fetchall()
     return [
-        {"chunk_id": r.chunk_id, "text": norm(r.parent_text), "doc": norm(r.document_name)}
+        {
+            "chunk_id": r.chunk_id,
+            "text": norm(r.parent_text),
+            "doc": norm(r.document_name),
+        }
         for r in rows
     ]
 
 
-def is_relevant(chunk_text_n: str, doc_n: str, kws: list[str], hint: str | None) -> bool:
+def is_relevant(
+    chunk_text_n: str,
+    doc_n: str,
+    kws: list[str],
+    hint: str | None,
+) -> bool:
     if hint and hint not in doc_n:
         return False
     return all(k in chunk_text_n for k in kws)
@@ -133,7 +142,9 @@ def main() -> None:
             hint = None if args.ignore_program else (norm(q.get("program_hint")) or None)
 
             rel_ids = {
-                c["chunk_id"] for c in corpus if is_relevant(c["text"], c["doc"], kws, hint)
+                c["chunk_id"]
+                for c in corpus
+                if is_relevant(c["text"], c["doc"], kws, hint)
             }
             if not rel_ids:
                 missing.append(q)
@@ -163,7 +174,6 @@ def main() -> None:
                 row[f"recall@{k}"] = sum(top) / len(rel_ids)
                 row[f"ndcg@{k}"] = ndcg_at_k(flags, len(rel_ids), k)
 
-            # ---- context metrics (สิ่งที่ LLM เห็นจริง) ----
             row["ctx_hit"] = 1.0 if any(c.chunk_id in rel_ids for c in ctx) else 0.0
             row["ctx_size"] = len(ctx)
             row["ctx_siblings"] = sum(1 for c in ctx if c.match_type == "sibling")
@@ -171,13 +181,17 @@ def main() -> None:
             cov_kws = [norm(x) for x in q.get("coverage_keywords", [])]
             if cov_kws:
                 ctx_text = "".join(norm(c.parent_text) for c in ctx)
-                row["ctx_coverage"] = sum(1 for k in cov_kws if k in ctx_text) / len(cov_kws)
+                row["ctx_coverage"] = (
+                    sum(1 for k in cov_kws if k in ctx_text) / len(cov_kws)
+                )
             else:
                 row["ctx_coverage"] = None
 
             prog = norm(q.get("program_hint"))
             if prog and ctx:
-                row["program_purity"] = sum(1 for c in ctx if prog in norm(c.document_name)) / len(ctx)
+                row["program_purity"] = (
+                    sum(1 for c in ctx if prog in norm(c.document_name)) / len(ctx)
+                )
             else:
                 row["program_purity"] = None
 
@@ -187,10 +201,15 @@ def main() -> None:
     finally:
         db.close()
 
-    # ---------- รายงาน ----------
     if missing:
-        print(f"!! ground truth ไม่ match chunk ไหนเลย {len(missing)} ข้อ (ตัดออกจากการคำนวณ)")
-        print("   → เช็ค relevant_keywords / program_hint หรือลองรันด้วย --ignore-program")
+        print(
+            f"!! ground truth ไม่ match chunk ไหนเลย {len(missing)} ข้อ "
+            "(ตัดออกจากการคำนวณ)"
+        )
+        print(
+            "   → เช็ค relevant_keywords / program_hint "
+            "หรือลองรันด้วย --ignore-program"
+        )
         for q in missing:
             print(f"   - {q['id']}: {q['question']}")
         print()
@@ -214,10 +233,13 @@ def main() -> None:
     print(f"=== Context ที่ LLM เห็นจริง (k={args.k} + sibling) ===")
     print(f"context hit      : {fmt(mean([r['ctx_hit'] for r in rows]))}")
     cov = [r["ctx_coverage"] for r in rows]
-    print(f"keyword coverage : {fmt(mean(cov))}  (n={sum(1 for c in cov if c is not None)})")
+    coverage_count = sum(1 for value in cov if value is not None)
+    print(f"keyword coverage : {fmt(mean(cov))}  (n={coverage_count})")
     print(f"program purity   : {fmt(mean([r['program_purity'] for r in rows]))}")
-    print(f"avg chunks → LLM : {fmt(mean([r['ctx_size'] for r in rows]), 1)} "
-          f"(sibling {fmt(mean([r['ctx_siblings'] for r in rows]), 1)})")
+    print(
+        f"avg chunks → LLM : {fmt(mean([r['ctx_size'] for r in rows]), 1)} "
+        f"(sibling {fmt(mean([r['ctx_siblings'] for r in rows]), 1)})"
+    )
     print(f"avg latency      : {fmt(mean([r['latency_ms'] for r in rows]), 0)} ms\n")
 
     print(f"=== แยกตามประเภทคำถาม (Hit@{args.k} / MRR / ctx coverage) ===")
@@ -234,8 +256,12 @@ def main() -> None:
     if failures:
         print(f"=== พลาดที่ top-{args.k} ({len(failures)} ข้อ) ===")
         for q, vec, first_rank in failures:
-            where = f"เจอที่อันดับ {first_rank}" if first_rank else f"ไม่เจอใน top-{max_k}"
-            print(f"- {q['id']} [{q.get('type','-')}] {q['question']}  ({where})")
+            where = (
+                f"เจอที่อันดับ {first_rank}"
+                if first_rank
+                else f"ไม่เจอใน top-{max_k}"
+            )
+            print(f"- {q['id']} [{q.get('type', '-')}] {q['question']}  ({where})")
             for i, c in enumerate(vec[:3], 1):
                 print(f"    {i}. d={c.distance:.3f} {preview(c)}")
         print()
@@ -253,8 +279,14 @@ def main() -> None:
             "operational_k": args.k,
             "mrr": mean([r["mrr"] for r in rows]),
             **{f"hit@{k}": mean([r[f"hit@{k}"] for r in rows]) for k in ks},
-            **{f"precision@{k}": mean([r[f"precision@{k}"] for r in rows]) for k in ks},
-            **{f"recall@{k}": mean([r[f"recall@{k}"] for r in rows]) for k in ks},
+            **{
+                f"precision@{k}": mean([r[f"precision@{k}"] for r in rows])
+                for k in ks
+            },
+            **{
+                f"recall@{k}": mean([r[f"recall@{k}"] for r in rows])
+                for k in ks
+            },
             **{f"ndcg@{k}": mean([r[f"ndcg@{k}"] for r in rows]) for k in ks},
             "ctx_hit": mean([r["ctx_hit"] for r in rows]),
             "ctx_coverage": mean(cov),

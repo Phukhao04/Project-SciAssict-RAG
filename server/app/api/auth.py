@@ -1,23 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
-from app.schemas.auth import (
-    AuthenRequestBody,
-    AccessRequestBody,
-    AuthResponse,
-    RegisterRequest,
-    RegisterResponse,
-)
 from app.crud.auth_crud import (
-    check_authen_request,
     check_access_request,
+    check_authen_request,
     create_user,
     username_exists,
+)
+from app.db.session import get_db
+from app.schemas.auth import (
+    AccessRequestBody,
+    AuthResponse,
+    AuthenRequestBody,
+    RegisterRequest,
+    RegisterResponse,
 )
 from app.utils.security import sign_token, verify_token, get_current_date_for_token
 
 router = APIRouter(prefix="/api/authen", tags=["authentication"])
+
+# จำกัด role ตอนสมัครเอง ไม่ใช้ role_id ที่ client ส่งมา
+SELF_REGISTER_ROLE_ID = "R02"
 
 
 @router.post("/register", response_model=RegisterResponse)
@@ -31,7 +34,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
             username=body.username,
             password=body.password,
             email=body.email,
-            role_id=body.role_id,
+            role_id=SELF_REGISTER_ROLE_ID,
             firstname=body.firstname,
             lastname=body.lastname,
         )
