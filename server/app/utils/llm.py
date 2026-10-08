@@ -4,17 +4,21 @@ import logging
 import httpx
 from sqlalchemy.orm import Session
 
-from .retrieval import retrieve
-from app.prompts.rag_system_prompt import SYSTEM_PROMPT, PROMPT_VERSION
 from app.config import settings
+from app.prompts.rag_system_prompt import PROMPT_VERSION, SYSTEM_PROMPT
+
+from .retrieval import retrieve
 
 logger = logging.getLogger(__name__)
 
 DOTBLUE_CHAT_URL = "https://ai.psu.blue/v1/chat/completions"
 
+# Limit each history message to keep the prompt concise.
+HISTORY_CHAR_LIMIT = 400
+
 
 def _build_context_block(index: int, chunk) -> str:
-    """สร้าง <context> block เดียว จาก 1 chunk ที่ retrieve มาได้ ใช้ parent_text"""
+    """Format one retrieved chunk as a context block."""
     return (
         f'<context index="{index}" source="{chunk.document_name}">\n'
         f"{chunk.parent_text}\n"
@@ -22,12 +26,42 @@ def _build_context_block(index: int, chunk) -> str:
     )
 
 
-def _build_prompt(question: str, retrieved: list) -> str:
-    """ประกอบ context blocks + คำถาม เข้าเป็น prompt เดียว"""
+def _format_history(history: list[dict]) -> str:
+    lines = []
+    for m in history:
+        who = "ผู้ใช้" if m["role"] == "user" else "ผู้ช่วย"
+        body = (m["text"] or "").strip()
+        if len(body) > HISTORY_CHAR_LIMIT:
+            body = body[:HISTORY_CHAR_LIMIT] + "..."
+        lines.append(f"{who}: {body}")
+    return "\n".join(lines)
+
+
+def _build_prompt(
+    question: str,
+    retrieved: list,
+    history: list[dict] | None = None,
+) -> str:
+    """Combine retrieved context, conversation history, and question."""
     context = "\n\n".join(
         _build_context_block(i, chunk)
         for i, chunk in enumerate(retrieved, start=1)
     )
+
+    history_block = ""
+    if history:
+        history_block = f"""<conversation_history>
+
+{_format_history(history)}
+
+</conversation_history>
+
+The conversation history is ONLY for understanding what the question refers to
+(e.g. which program, course or topic "it" / "that one" means). Never use it as a
+source of facts - every fact in your answer must come from <context_documents>.
+Do not answer from an earlier assistant reply if the context does not support it.
+
+"""
 
     return f"""<context_documents>
 
@@ -35,7 +69,7 @@ def _build_prompt(question: str, retrieved: list) -> str:
 
 </context_documents>
 
-<question>
+{history_block}<question>
 
 {question}
 
@@ -48,10 +82,6 @@ If the answer is not there, respond exactly: "ไม่พบข้อมูล�
 
 
 def _parse_sse_stream(body: str) -> str:
-    """dotBlue ส่งกลับมาเป็น Server-Sent Events
-    (บรรทัด 'data: {...}' หลายก้อนต่อกัน)
-    แทน JSON ก้อนเดียว แม้จะขอ stream=false ก็ตาม
-    """
     full_text = ""
 
     for line in body.splitlines():
@@ -87,6 +117,7 @@ def generate_answer(
     model: str = "PSU-LLM/psu-gemma",
     k: int = 3,
     retrieved=None,
+    history: list[dict] | None = None,
 ) -> str:
     if retrieved is None:
         retrieved = retrieve(db, question, k=k)
@@ -94,7 +125,7 @@ def generate_answer(
     if not retrieved:
         return "ไม่พบข้อมูลนี้ในระบบ"
 
-    prompt = _build_prompt(question, retrieved)
+    prompt = _build_prompt(question, retrieved, history)
 
     logger.debug(
         "[llm] prompt (%s):\n%s",
@@ -141,14 +172,12 @@ def generate_answer(
 
     body_text = http_response.text
 
-    # ตอบแบบ JSON ก้อนเดียว
     try:
         data = json.loads(body_text)
         return data["choices"][0]["message"]["content"].strip()
     except (json.JSONDecodeError, KeyError, IndexError, TypeError):
         pass
 
-    # ตอบแบบ SSE stream
     if "data:" in body_text:
         answer = _parse_sse_stream(body_text).strip()
 

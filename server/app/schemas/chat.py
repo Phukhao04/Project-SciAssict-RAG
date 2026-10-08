@@ -1,5 +1,6 @@
-from pydantic import BaseModel
 from datetime import datetime
+
+from pydantic import BaseModel, Field
 
 
 class SessionResponse(BaseModel):
@@ -13,4 +14,4 @@ class MessageResponse(BaseModel):
     sender_role: str
     message_text: str
     timestamp: datetime
-    sources: list = []
+    sources: list[dict] = Field(default_factory=list)

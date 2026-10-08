@@ -14,12 +14,7 @@ class RawLine:
     index: int
     kind: str  # "paragraph" | "table_row"
     text: str
-    # ถ้าไฟล์มี Word heading style (Heading 1/2/...) ติดมาอยู่แล้ว เก็บ
-    # level ไว้เป็น "คำแนะนำเริ่มต้น" ให้ frontend pre-fill การ mark ให้
-    # แอดมินตรวจสอบ/แก้ไขต่อ ไม่ใช่ apply ตรงเข้า DB เลย - แอดมินยังต้อง
-    # ตรวจสอบผ่าน UI เหมือนเดิมเป๊ะ (ต่างจาก Docling เดิมที่ auto-apply
-    # โดยไม่มีจุดให้ตรวจสอบก่อน) ค่า 0 = ไม่มี style ให้อ้างอิง หรือเป็น
-    # PDF ที่ไม่มีข้อมูล style ให้อ่านเลย
+    # Suggested heading level for review; 0 means no heading style was found.
     suggested_level: int = 0
 
 
@@ -27,8 +22,7 @@ _WORD_HEADING_STYLE_PATTERN = re.compile(r"heading\s*(\d+)", re.IGNORECASE)
 
 
 def _style_to_heading_level(style_name: str | None) -> int:
-    """แปลงชื่อ Word style (เช่น 'Heading 1', 'Heading 2') เป็นเลข level
-    คืน 0 ถ้าไม่ใช่ heading style (เช่น 'Normal', 'Title', ตัวหนาเฉยๆ)"""
+    """Return the heading level from a Word style name, or 0 if not a heading."""
     if not style_name:
         return 0
     match = _WORD_HEADING_STYLE_PATTERN.match(style_name.strip())
@@ -44,11 +38,7 @@ class HeadingMark:
 
 
 def _iter_block_items(doc: DocxDocument):
-    """
-    เดินตาม document body ตามลำดับ XML จริง (paragraph สลับ table
-    ตามที่ปรากฏในไฟล์) แทนการอ่าน doc.paragraphs และ doc.tables
-    แยกกันเป็นคนละ list
-    """
+    """Yield document paragraphs and tables in their original XML order."""
     parent_elm = doc.element.body
     for child in parent_elm.iterchildren():
         if child.tag.endswith("}p"):
@@ -58,16 +48,7 @@ def _iter_block_items(doc: DocxDocument):
 
 
 def parse_raw_docx(file_bytes: bytes) -> list[RawLine]:
-    """
-    อ่านไฟล์ .docx ดิบ ไม่สนใจ Word heading style ใดๆ เลย
-    คืน list ของบรรทัดตามลำดับจริงในเอกสาร สำหรับให้ frontend
-    render ให้แอดมิน mark heading level เอง
-
-    Paragraph ว่างเปล่าถูกข้าม (ไม่มีประโยชน์ให้ mark)
-    Table แต่ละแถวถูกรวมเป็น 1 บรรทัด คั่นด้วย " | " ต่อ cell
-    (merged cell ที่ python-docx รายงานค่าเดิมซ้ำหลาย cell จะถูกตัด
-    ให้เหลือ unique value ตามลำดับ)
-    """
+    """Extract DOCX paragraphs and table rows in document order."""
     doc = DocxDocument(io.BytesIO(file_bytes))
     lines: list[RawLine] = []
     idx = 0
@@ -103,14 +84,7 @@ def parse_raw_docx(file_bytes: bytes) -> list[RawLine]:
 
 
 def parse_raw_pdf(file_bytes: bytes) -> list[RawLine]:
-    """
-    อ่านไฟล์ .pdf ดิบ - reuse extract_text_from_pdf() เดิมจาก
-    extraction.py (pypdf) ตรงๆ ไม่เขียน PDF parser ใหม่ซ้ำ
-
-    ต่างจาก parse_raw_docx() ตรงที่ PDF ไม่มีแนวคิดตาราง/paragraph
-    แยกกันให้ pypdf บอกได้ ทุกบรรทัดที่ extract ได้ถือเป็น "paragraph"
-    เหมือนกันหมด (kind="paragraph" เสมอ ไม่มี "table_row" สำหรับ PDF)
-    """
+    """Extract PDF text lines as paragraphs."""
     paragraphs = extract_text_from_pdf(file_bytes)
     lines: list[RawLine] = []
     idx = 0
@@ -129,28 +103,12 @@ def build_chunks_from_marks(
     marks: list[HeadingMark],
     max_chars: int = 1500,
 ) -> list[dict]:
-    """
-    แบ่ง chunk ตาม heading ที่แอดมินเลือก mark เอง
-
-    Logic เทียบเท่ากับ _merge_chunks_by_heading ใน docling_pipeline.py
-    แต่ heading มาจาก manual mark แทนการเดาจาก Word style ผ่าน Docling
-
-    heading_stack เก็บ heading ปัจจุบันของแต่ละ level - เมื่อเจอ mark
-    ระดับ N ใหม่ ต้องล้าง level ที่ลึกกว่า N ทิ้ง (heading ใหม่ตัดสาย
-    heading ลูกของก้อนก่อนหน้า) แต่คง level ที่ตื้นกว่าไว้ (เช่น mark
-    heading level 2 ใหม่ ไม่กระทบ heading level 1 ที่ครอบอยู่)
-    """
+    """Build text chunks using the manually selected heading levels."""
     mark_by_index = {m.line_index: m.level for m in marks}
     heading_stack: dict[int, str] = {}
 
     groups: list[tuple[tuple, list[str]]] = []
     current_lines: list[str] = []
-    # เดิม flush_group() บันทึกกลุ่มเฉพาะตอน current_lines ไม่ว่างเปล่า -
-    # ทำให้ heading ที่ไม่มีเนื้อหาใต้เลย (เช่น mark heading ติดกันหลายอัน
-    # โดยไม่มีบรรทัดเนื้อหาคั่นระหว่างกลาง) หายไปเงียบๆ ทั้งที่ marks ที่
-    # ส่งมาไม่ได้ว่างเปล่า ถ้าเกิดกับทุก heading พร้อมกัน results จะกลาย
-    # เป็น [] ทั้งที่ควรมีอย่างน้อย 1 chunk - has_current_heading ใช้เช็ค
-    # แยกว่า "มี heading ที่ยังไม่ได้ flush อยู่ไหม" เพื่อไม่ให้หลุดกรณีนี้
     has_current_heading = False
 
     def current_heading_tuple() -> tuple:
@@ -180,9 +138,6 @@ def build_chunks_from_marks(
     def _heading_str(heading: tuple) -> str:
         return " > ".join(heading) if heading else ""
 
-    # หัวข้อที่มีเนื้อหาจริงอย่างน้อย 1 chunk ในเอกสารนี้ - รู้ล่วงหน้าได้
-    # ทั้งเอกสารตรงนี้เพราะ groups ถูกสร้างครบทุกก้อนแล้วก่อนวนสร้าง chunk
-    # จริงด้านล่าง (ไม่ต้อง look-ahead ระหว่างวน)
     real_headings = {_heading_str(h) for h, body in groups if body}
 
     results: list[dict] = []
@@ -190,17 +145,7 @@ def build_chunks_from_marks(
         heading_str = _heading_str(heading)
 
         if not body_lines:
-            # heading ไม่มีเนื้อหาใต้เลย - เช็คก่อนว่าซ้ำซ้อนกับ chunk อื่น
-            # ที่มีเนื้อหาจริงหรือไม่ (กรณี mark heading ติดกัน เช่น H1
-            # ตามด้วย H2 ทันทีโดยไม่มีเนื้อหาคั่น) ถ้าซ้ำซ้อน หัวข้อนี้ถูก
-            # พกไปกับ heading path ของ chunk ลูกอยู่แล้ว ("A > B" ใน
-            # parent_text ของ chunk ลูก) การสร้าง chunk แยกอีกอันที่มีแต่
-            # ข้อความหัวข้อล้วนๆ เป็นการซ้ำซ้อนที่ไม่มีประโยชน์ แถมทำให้
-            # retrieval แย่ลง (chunk สั้นๆ ที่มีแต่คำหัวข้อ ชนะ vector
-            # search จากคำถามที่ใช้คำตรงกับหัวข้อ แต่ไม่มีคำตอบอยู่ข้างใน)
-            # ตัดทิ้งเฉพาะกรณีซ้ำซ้อนแบบนี้เท่านั้น - หัวข้อที่ไม่มีเนื้อหา
-            # ที่ไหนเลยในเอกสาร (orphan จริง) ยังคงเก็บไว้เหมือนเดิม เพื่อ
-            # กันหัวข้อหาย (เหตุผลเดิมของ has_current_heading ด้านบน)
+            # Drop empty headings already represented by a content-bearing descendant.
             is_redundant = any(
                 rh == heading_str or rh.startswith(heading_str + " > ")
                 for rh in real_headings

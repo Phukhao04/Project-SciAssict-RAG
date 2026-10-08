@@ -1,16 +1,16 @@
-"""
-CRUD สำหรับ document_category
-แยกไฟล์นี้ออกมาต่างหาก เพราะ chat_crud.py มีหน้าที่เกี่ยวกับ session/messages
-ล้วนๆ อยู่แล้ว ไม่อยากยัดของที่ไม่เกี่ยวกันเข้าไฟล์เดียว
-"""
+import json
+import logging
+import os
+from datetime import date, timedelta
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from datetime import date, timedelta
-import json
 
 from app.utils.chunk_heading import extract_chunk_heading
 from app.utils.embedding import embed_document, build_embedding_text
+
+logger = logging.getLogger(__name__)
 
 THAI_WEEKDAY_SHORT = [
     "จ",
@@ -20,7 +20,7 @@ THAI_WEEKDAY_SHORT = [
     "ศ",
     "ส",
     "อา",
-]  # date.weekday(): 0=จันทร์ ... 6=อาทิตย์
+]
 
 
 def get_all_categories(db: Session) -> list[dict]:
@@ -139,12 +139,6 @@ def get_all_documents(db: Session) -> list[dict]:
 
 
 def delete_document(db: Session, document_id: int) -> bool:
-    """
-    ลบ chunk ก่อนเสมอ (child) แล้วค่อยลบ document (parent)
-    ทำไมไม่พึ่ง ON DELETE CASCADE: FK ของ document_chunk ในโมเดลปัจจุบัน
-    ชี้ผิดคอลัมน์ (document.docment_id ที่ไม่มีจริง) เลยไม่กล้าพึ่งพฤติกรรม
-    cascade ของ DB ตรงๆ จนกว่าจะแก้ constraint ให้ถูก ลบเองด้วยโค้ดชัวร์กว่า
-    """
     exists = db.execute(
         text("SELECT file_path FROM document WHERE document_id = :id"),
         {"id": document_id},
@@ -163,14 +157,15 @@ def delete_document(db: Session, document_id: int) -> bool:
     db.commit()
 
     if exists.file_path:
-        import os
-        from pathlib import Path
-
         base_dir = Path(__file__).resolve().parents[2]
         try:
             os.remove(base_dir / exists.file_path)
         except OSError:
-            pass
+            logger.warning(
+                "Failed to remove document file %s",
+                base_dir / exists.file_path,
+                exc_info=True,
+            )
 
     return True
 
@@ -193,13 +188,6 @@ def get_document_detail(db: Session, document_id: int) -> dict | None:
     if doc_row is None:
         return None
 
-    # ORDER BY chunk_id ใช้แทนลำดับต้นฉบับ เพราะ document_chunk ไม่มี
-    # คอลัมน์ลำดับเก็บไว้จริงๆ - ใช้ได้เพราะ ingestion insert เรียงตามลำดับ chunk เดิม
-    #
-    # ดึง parent_text เพิ่ม (เดิมดึงแค่ chunk_text) เพราะ heading ของแต่ละ
-    # chunk อยู่ใน parent_text เท่านั้น (รูปแบบ "heading1 > heading2\nbody")
-    # ถ้าไม่ส่ง parent_text มาด้วย frontend จะไม่มีทางรู้เลยว่า chunk นี้
-    # อยู่ใต้หัวข้ออะไร - เป็นสาเหตุที่หน้าดู chunk ดูมั่ว ไม่รู้ว่าอะไรคืออะไร
     chunks_sql = text("""
         SELECT chunk_id, chunk_text, parent_text
         FROM document_chunk
@@ -228,14 +216,7 @@ def get_document_detail(db: Session, document_id: int) -> dict | None:
 def update_chunk_content(
     db: Session, document_id: int, chunk_id: int, new_body: str
 ) -> dict | None:
-    """
-    แก้ไขเฉพาะเนื้อหา (chunk_text) ของ chunk เดียว - heading คงเดิมเสมอ
-    (ดึงจาก parent_text เดิมใน DB มาประกอบใหม่ ไม่รับ heading จาก client
-    เพราะ DB คือแหล่งความจริงเดียว ไม่ใช่สิ่งที่ client ส่งมา) เนื้อหาเปลี่ยน
-    ต้อง re-embed parent_text ใหม่เสมอ ไม่งั้นการค้นหาจะอ้างอิงเนื้อหาเก่า
-    ที่ไม่ตรงกับที่แสดงจริงแล้ว (embedding ค้าง = คุณภาพ retrieval แย่ลง
-    แบบมองไม่เห็น)
-    """
+    """Update chunk text while preserving its heading and refreshing its embedding."""
     row = db.execute(
         text("""
             SELECT dc.chunk_text, dc.parent_text, d.document_name, p.program_name
@@ -301,11 +282,7 @@ def get_stats(db: Session) -> dict:
 
 
 def get_query_activity(db: Session, weeks: int = 13) -> list[dict]:
-    """
-    คืนค่าคงที่ 13 สัปดาห์ (91 วัน) ย้อนหลังจากวันนี้เสมอ (91 หาร 7 ลงตัวพอดี)
-    เติมวันที่ไม่มีคำถามเลยด้วย count=0 (zero-fill) เพื่อให้กราฟกลุ่มสัปดาห์
-    ฝั่ง frontend เรียงถูกต้องเสมอ ไม่ขึ้นกับว่า DB มีข้อมูลจริงตั้งแต่วันไหน
-    """
+    """Return daily query counts for the requested weeks, including zero-count days."""
     days_count = weeks * 7
     today = date.today()
     start_date = today - timedelta(days=days_count - 1)

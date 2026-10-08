@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
 from app.api.deps import get_current_user
-from app.schemas.chat import SessionResponse, MessageResponse
 from app.crud.chat_crud import (
-    get_sessions_by_user,
     get_messages_by_session,
     get_session_owner,
+    get_sessions_by_user,
 )
+from app.db.session import get_db
+from app.schemas.chat import MessageResponse, SessionResponse
 
 router = APIRouter(prefix="/api/chat", tags=["Chat History"])
 
@@ -18,8 +18,7 @@ def list_sessions(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # ดึง user_id จาก JWT เท่านั้น ไม่รับจาก URL/client เพื่อกัน IDOR
-    # (แพทเทิร์นเดียวกับ /api/user/me)
+    # ใช้ user_id จาก JWT เพื่อป้องกันการเข้าถึง session ของผู้อื่น
     return get_sessions_by_user(db, current_user["user_id"])
 
 

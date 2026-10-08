@@ -7,6 +7,7 @@ import Spinner from "../../components/common/Spinner";
 import { useAuth } from "../../hooks/useAuth";
 import AppConfig from "../../config/appConfig";
 import { extractChunkHeading } from "../../utils/chunkHeading";
+import { authHeaders } from "../../utils/authHeaders";
 import "./Admin.css";
 import "./UploadDocument.css";
 
@@ -57,7 +58,7 @@ function UploadDocument() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/rag/categories`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ category_name: name }),
       });
       const data = await res.json().catch(() => ({}));
@@ -86,7 +87,7 @@ function UploadDocument() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/rag/programs`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ program_name: name }),
       });
       const data = await res.json().catch(() => ({}));
@@ -232,6 +233,7 @@ function UploadDocument() {
       });
 
       xhr.open("POST", `${API_BASE_URL}/api/rag/documents/parse-raw`);
+      Object.entries(authHeaders()).forEach(([k, v]) => xhr.setRequestHeader(k, v));
       xhr.send(formData);
     });
   }, []);
@@ -386,7 +388,7 @@ function UploadDocument() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/rag/documents/build-chunks`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ lines, marks }),
       });
       if (!res.ok) {
@@ -433,7 +435,7 @@ function UploadDocument() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/rag/documents/confirm-manual`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           chunks,
           document_name: documentName.trim(),

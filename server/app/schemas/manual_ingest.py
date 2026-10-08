@@ -1,9 +1,3 @@
-"""
-Schemas สำหรับ manual heading marking flow (api/manual_ingest.py)
-เดิม schema พวกนี้ถูกประกาศ inline อยู่ในไฟล์ router — ย้ายมารวมที่ app/schemas/
-ให้เหมือน router อื่นๆ ที่ import schema จากที่นี่หมด
-"""
-
 from pydantic import BaseModel
 
 
@@ -43,7 +37,6 @@ class ConfirmManualIngestRequest(BaseModel):
     document_name: str
     document_type: str
     category_id: int
-    user_id: int
     description: str | None = None
     source_url: str | None = None
     file_name: str

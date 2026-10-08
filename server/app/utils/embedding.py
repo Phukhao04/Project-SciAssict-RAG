@@ -1,12 +1,5 @@
-"""
-Embedding model wrapper
-
-โหลด BAAI/bge-m3 เพียงครั้งเดียว (Singleton)
-และแยกการสร้าง embedding สำหรับ Query และ Document
-เพื่อให้การค้นหา Retrieval มีความแม่นยำมากขึ้น
-"""
-
 import re
+
 from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "BAAI/bge-m3"
@@ -15,9 +8,7 @@ _model: SentenceTransformer | None = None
 
 
 def get_embedder() -> SentenceTransformer:
-    """
-    โหลดโมเดลครั้งเดียว
-    """
+    """Load the embedding model once and reuse it."""
     global _model
 
     if _model is None:
@@ -27,15 +18,7 @@ def get_embedder() -> SentenceTransformer:
 
 
 def embed_query(query: str) -> list[float]:
-    """
-    สร้าง embedding สำหรับ "คำถาม"
-
-    BGE-M3 แนะนำให้เติม instruction สำหรับ Query
-    เพื่อเพิ่มประสิทธิภาพ Retrieval
-    """
-
     embedder = get_embedder()
-
     embedding = embedder.encode(
         "Represent this sentence for searching relevant passages: " + query,
         normalize_embeddings=True,
@@ -45,26 +28,15 @@ def embed_query(query: str) -> list[float]:
 
 
 def embed_document(text: str) -> list[float]:
-    """
-    สร้าง embedding สำหรับ Document
-    """
-
     embedder = get_embedder()
-
-    embedding = embedder.encode(
-        text,
-        normalize_embeddings=True,
-    )
-
+    embedding = embedder.encode(text, normalize_embeddings=True)
     return embedding.tolist()
 
 
 def build_embedding_text(
     program_name: str, document_name: str, parent_text: str
 ) -> str:
-    """ข้อความที่ใช้สร้าง vector เท่านั้น (ไม่เก็บลง DB)
-    ใส่ชื่อสาขา + ชื่อเอกสารนำหน้า ให้ vector รู้ว่า chunk นี้เป็นของสาขาไหน"""
-
+    """Prefix document text with its program and cleaned document name."""
     doc = re.sub(
         r"\.(docx|pdf)$", "", (document_name or "").strip(), flags=re.IGNORECASE
     )

@@ -1,15 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
 from app.api.deps import get_current_user
-from app.schemas.user import ProfileResponse, ProfileUpdateRequest, PasswordChangeRequest
 from app.crud.user_crud import (
-    get_profile,
     email_taken_by_other,
+    get_profile,
+    update_password,
     update_profile,
     verify_current_password,
-    update_password,
+)
+from app.db.session import get_db
+from app.schemas.user import (
+    PasswordChangeRequest,
+    ProfileResponse,
+    ProfileUpdateRequest,
 )
 
 router = APIRouter(prefix="/api/user", tags=["User Profile"])
@@ -20,8 +24,6 @@ def read_my_profile(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # ดึง user_id จาก JWT เท่านั้น ไม่รับ user_id จาก query/body
-    # กันไม่ให้ใครสวมรอยดูข้อมูลโปรไฟล์คนอื่นได้แค่เดา id
     profile = get_profile(db, current_user["user_id"])
     if profile is None:
         raise HTTPException(status_code=404, detail="ไม่พบข้อมูลผู้ใช้")
