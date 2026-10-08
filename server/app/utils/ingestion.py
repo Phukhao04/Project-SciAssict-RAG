@@ -3,11 +3,11 @@ import re
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from .embedding import get_embedder, build_embedding_text
+
+from .embedding import build_embedding_text, get_embedder
 
 
 def clean_text(raw: str) -> str:
-    """ทำความสะอาดข้อความก่อนสร้าง Embedding"""
     raw = raw.replace("\u00a0", " ")
     raw = raw.replace("\t", " ")
     raw = re.sub(r"\n{3,}", "\n\n", raw)

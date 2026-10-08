@@ -1,10 +1,8 @@
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class AuthenRequestBody(BaseModel):
     authen_request: str
-
-    model_config = ConfigDict(populate_by_name=True)
 
 
 class AccessRequestBody(BaseModel):
@@ -34,7 +32,6 @@ class RegisterRequest(BaseModel):
 
 
 class RegisterResponse(BaseModel):
-    # ห้ามมี field password/salt โผล่ในนี้เด็ดขาด แม้จะ hash แล้วก็ตาม
     user_id: int
     username: str
     email: str

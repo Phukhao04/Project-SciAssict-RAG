@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 
 def create_session(db: Session, user_id: int, title: str) -> int:
-    """สร้าง session ใหม่ ตัด title ยาวเกินไปให้สั้นลง (กันเปลืองพื้นที่/อ่านง่าย)"""
+    """Create a session with a title limited to 50 characters."""
     short_title = title[:50] + ("..." if len(title) > 50 else "")
     insert_sql = text("""
         INSERT INTO chatsession (user_id, session_title, created_at)
@@ -55,7 +55,11 @@ def get_messages_by_session(db: Session, session_id: int) -> list[dict]:
 
 
 def save_message(
-    db: Session, session_id: int, user_id: int, sender_role: str, text_content: str,
+    db: Session,
+    session_id: int,
+    user_id: int,
+    sender_role: str,
+    text_content: str,
     sources: list[dict] | None = None,
 ):
     insert_sql = text("""
@@ -78,7 +82,6 @@ def save_message(
 
 
 def get_session_owner(db: Session, session_id: int) -> int | None:
-    """คืน user_id เจ้าของ session นี้ ใช้เช็คสิทธิ์ก่อนให้เข้าถึงข้อความในนั้น"""
     sql = text("SELECT user_id FROM chatsession WHERE session_id = :session_id")
     row = db.execute(sql, {"session_id": session_id}).first()
     return row.user_id if row else None

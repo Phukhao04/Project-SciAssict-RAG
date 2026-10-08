@@ -1,35 +1,42 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from app.api.deps import require_admin
-from app.db.session import get_db
-from app.schemas.admin import UserListItem, UserRoleUpdateRequest, RoleItem
 from app.crud.admin_crud import (
-    get_all_users,
-    get_all_roles,
-    update_user_role,
     delete_user,
+    get_all_roles,
+    get_all_users,
+    update_user_role,
 )
+from app.db.session import get_db
+from app.schemas.admin import RoleItem, UserListItem, UserRoleUpdateRequest
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
-@router.get("/users", response_model=list[UserListItem])
-def list_users(db: Session = Depends(get_db), _admin: dict = Depends(require_admin)):
+@router.get(
+    "/users",
+    response_model=list[UserListItem],
+    dependencies=[Depends(require_admin)],
+)
+def list_users(db: Session = Depends(get_db)):
     return get_all_users(db)
 
 
-@router.get("/roles", response_model=list[RoleItem])
-def list_roles(db: Session = Depends(get_db), _admin: dict = Depends(require_admin)):
-    """ให้ frontend ดึงไปสร้าง dropdown เปลี่ยนบทบาท แทนการ hardcode ป้ายชื่อ"""
+@router.get(
+    "/roles",
+    response_model=list[RoleItem],
+    dependencies=[Depends(require_admin)],
+)
+def list_roles(db: Session = Depends(get_db)):
     return get_all_roles(db)
 
 
-@router.patch("/users/{user_id}")
+@router.patch("/users/{user_id}", dependencies=[Depends(require_admin)])
 def patch_user_role(
     user_id: int,
     body: UserRoleUpdateRequest,
     db: Session = Depends(get_db),
-    _admin: dict = Depends(require_admin),
 ):
     try:
         updated = update_user_role(db, user_id, body.role_id)
@@ -41,11 +48,10 @@ def patch_user_role(
     return {"success": True, "user_id": user_id, "role_id": body.role_id}
 
 
-@router.delete("/users/{user_id}")
+@router.delete("/users/{user_id}", dependencies=[Depends(require_admin)])
 def remove_user(
     user_id: int,
     db: Session = Depends(get_db),
-    _admin: dict = Depends(require_admin),
 ):
     try:
         deleted = delete_user(db, user_id)

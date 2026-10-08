@@ -1,22 +1,3 @@
-"""
-API endpoints สำหรับ manual heading marking flow
-
-ใช้คู่กับ app/utils/ingest_manual.py - แบ่งเป็น 3 ขั้นตอน:
-1. POST /parse-raw      - อัปโหลดไฟล์ดิบ -> คืน list บรรทัดให้แอดมิน mark
-2. POST /build-chunks   - ส่ง marks กลับมา -> คืน chunk preview (ยังไม่ save)
-3. POST /confirm-manual - แอดมินตรวจ chunk แล้ว -> insert + embed จริง
-
-ขั้นตอนที่ 3 reuse _insert_document_row() และ _embed_and_insert_chunks()
-จาก app/utils/ingestion.py ตรงๆ (ฟังก์ชันเดียวกับที่ /documents/upload
-ใช้อยู่) เพื่อให้ document ที่มาจาก manual-mark กับ document ที่มาจาก
-Docling auto-pipeline ถูก insert/embed ด้วยตรรกะเดียวกันเป๊ะ ไม่มี
-ทางเบี่ยงที่ทำให้พฤติกรรมสองเส้นทางต่างกัน
-
-วางไฟล์นี้ไว้ที่: server/app/api/manual_ingest.py (โฟลเดอร์เดียวกับ
-rag.py ที่ดูแล document endpoints อื่นๆ อยู่แล้ว) แล้ว include_router()
-เข้า main.py แบบเดียวกับ router อื่น
-"""
-
 import logging
 import os
 import re
@@ -28,8 +9,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_admin
+from app.crud.document_crud import get_program_name
 from app.db.session import get_db
-from app.schemas.rag import IngestResponse
 from app.schemas.manual_ingest import (
     BuildChunksRequest,
     BuildChunksResponse,
@@ -38,6 +20,7 @@ from app.schemas.manual_ingest import (
     ParseRawResponse,
     RawLineOut,
 )
+from app.schemas.rag import IngestResponse
 from app.utils.ingest_manual import (
     HeadingMark,
     RawLine,
@@ -46,7 +29,6 @@ from app.utils.ingest_manual import (
     parse_raw_pdf,
 )
 from app.utils.ingestion import _embed_and_insert_chunks, _insert_document_row
-from app.crud.document_crud import get_program_name
 
 logger = logging.getLogger(__name__)
 
@@ -59,26 +41,16 @@ DOCUMENT_DIR = UPLOAD_ROOT / "documents"
 PENDING_DIR.mkdir(parents=True, exist_ok=True)
 DOCUMENT_DIR.mkdir(parents=True, exist_ok=True)
 
-# เท่ากับ MAX_FILE_SIZE_MB ใน rag.py (/documents/upload) - endpoint นี้เดิม
-# ไม่มีการเช็คขนาดไฟล์เลย ทำให้เสียการป้องกันไปเงียบๆ ถ้า frontend เปลี่ยน
-# มาเรียก endpoint นี้แทน (เช่นตอนรวมหน้าอัปโหลด+mark heading เป็นหน้าเดียว)
 MAX_FILE_SIZE_MB = 20
 
 
-# ---------- Endpoints ----------
-
-
-@router.post("/parse-raw", response_model=ParseRawResponse)
-async def parse_raw(
-    file: UploadFile = File(...),
-):
-    """
-    รับไฟล์ดิบ (.docx หรือ .pdf) คืน list บรรทัดตามลำดับจริงในเอกสาร
-    (ไม่ผ่าน Docling / ไม่สนใจ Word heading style เลย)
-
-    เลือก parser ตามนามสกุลไฟล์ - ทั้งสองฟังก์ชันคืน RawLine list รูปแบบ
-    เดียวกัน ทำให้ /build-chunks ทำงานเหมือนกันไม่ว่าไฟล์ต้นทางเป็นอะไร
-    """
+@router.post(
+    "/parse-raw",
+    response_model=ParseRawResponse,
+    dependencies=[Depends(require_admin)],
+)
+async def parse_raw(file: UploadFile = File(...)):
+    """แยกข้อความจากไฟล์ .docx หรือ .pdf"""
     filename_lower = (file.filename or "").lower()
 
     if filename_lower.endswith(".docx"):
@@ -157,12 +129,13 @@ def download_document(document_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/build-chunks", response_model=BuildChunksResponse)
-async def build_chunks(body: BuildChunksRequest):
-    """
-    รับ lines (จาก /parse-raw) + marks (heading ที่แอดมินเลือก)
-    คืน chunk preview - ยังไม่ embed หรือ save ลง DB
-    """
+@router.post(
+    "/build-chunks",
+    response_model=BuildChunksResponse,
+    dependencies=[Depends(require_admin)],
+)
+def build_chunks(body: BuildChunksRequest):
+    """สร้างตัวอย่าง chunks จาก heading ที่เลือก"""
     if not body.marks:
         raise HTTPException(
             status_code=400,
@@ -194,13 +167,9 @@ async def build_chunks(body: BuildChunksRequest):
 def confirm_manual_ingest(
     body: ConfirmManualIngestRequest,
     db: Session = Depends(get_db),
+    admin: dict = Depends(require_admin),
 ):
-    """
-    บันทึกจริง - แอดมินตรวจ chunk จาก /build-chunks แล้ว (แก้ไขเพิ่มได้
-    ก่อนส่งมาที่นี่) เรียก insert + embed ด้วยฟังก์ชันเดียวกับที่
-    /documents/upload ใช้ (_insert_document_row, _embed_and_insert_chunks
-    ใน ingestion.py) เพื่อให้พฤติกรรมเหมือนกันทุกเส้นทางที่เข้ามา
-    """
+    """บันทึกเอกสารและ chunks พร้อมสร้าง embeddings"""
     if not body.chunks:
         raise HTTPException(
             status_code=400,
@@ -228,7 +197,7 @@ def confirm_manual_ingest(
             body.document_name,
             body.document_type,
             body.category_id,
-            body.user_id,
+            admin["user_id"],
             body.description,
             body.program_id,
             file_name=body.file_name,
@@ -245,7 +214,7 @@ def confirm_manual_ingest(
             db, document_id, chunks, body.document_name, program_name
         )
 
-        # ย้ายไฟล์เป็นขั้นสุดท้าย ถ้าขั้นก่อนหน้าพัง ไฟล์ยังอยู่ใน pending ให้ลองใหม่ได้
+        # ย้ายไฟล์หลังบันทึกสำเร็จ เพื่อเก็บไฟล์ไว้ใน pending หากเกิดข้อผิดพลาด
         shutil.move(str(pending_path), str(final_path))
 
     except HTTPException:
