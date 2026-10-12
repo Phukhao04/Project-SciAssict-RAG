@@ -103,7 +103,6 @@ def _fetch_sibling_chunks(
 
 def retrieve(db: Session, query_text_str: str, k: int = 5) -> list[RetrievedChunk]:
     """Retrieve vector matches, boost course-code matches, and expand siblings."""
-    # NEW: ต่อชื่อสาขาทางการท้ายคำถามถ้าเจอชื่อเล่น (ใช้กับ embedding เท่านั้น)
     query_embedding = embed_query(expand_program_aliases(query_text_str))
 
     sql = text("""
