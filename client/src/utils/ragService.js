@@ -23,7 +23,7 @@ import AppConfig from "../config/appConfig";
 // เวลาเรียก authHeaders() จะได้ข้อมูลที่ใช้แนบไปกับคำขอ
 import { authHeaders } from "./authHeaders";
 
-export async function chatRequest(question, userId, sessionId = null, k = 5) {
+export async function chatRequest(question, userId, sessionId = null, k = 8) {
   const response = await fetch(`${AppConfig.apiBaseUri}/rag/chat`, {
 
     // POST = ส่งข้อมูลให้ backend ประมวลผล
