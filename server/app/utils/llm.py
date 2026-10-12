@@ -13,9 +13,6 @@ logger = logging.getLogger(__name__)
 
 DOTBLUE_CHAT_URL = "https://ai.psu.blue/v1/chat/completions"
 
-# Limit each history message to keep the prompt concise.
-HISTORY_CHAR_LIMIT = 400
-
 
 def _build_context_block(index: int, chunk) -> str:
     """Format one retrieved chunk as a context block."""
@@ -26,42 +23,12 @@ def _build_context_block(index: int, chunk) -> str:
     )
 
 
-def _format_history(history: list[dict]) -> str:
-    lines = []
-    for m in history:
-        who = "ผู้ใช้" if m["role"] == "user" else "ผู้ช่วย"
-        body = (m["text"] or "").strip()
-        if len(body) > HISTORY_CHAR_LIMIT:
-            body = body[:HISTORY_CHAR_LIMIT] + "..."
-        lines.append(f"{who}: {body}")
-    return "\n".join(lines)
-
-
-def _build_prompt(
-    question: str,
-    retrieved: list,
-    history: list[dict] | None = None,
-) -> str:
-    """Combine retrieved context, conversation history, and question."""
+def _build_prompt(question: str, retrieved: list) -> str:
+    """Combine retrieved context and question."""
     context = "\n\n".join(
         _build_context_block(i, chunk)
         for i, chunk in enumerate(retrieved, start=1)
     )
-
-    history_block = ""
-    if history:
-        history_block = f"""<conversation_history>
-
-{_format_history(history)}
-
-</conversation_history>
-
-The conversation history is ONLY for understanding what the question refers to
-(e.g. which program, course or topic "it" / "that one" means). Never use it as a
-source of facts - every fact in your answer must come from <context_documents>.
-Do not answer from an earlier assistant reply if the context does not support it.
-
-"""
 
     return f"""<context_documents>
 
@@ -69,7 +36,7 @@ Do not answer from an earlier assistant reply if the context does not support it
 
 </context_documents>
 
-{history_block}<question>
+<question>
 
 {question}
 
@@ -117,7 +84,6 @@ def generate_answer(
     model: str = "PSU-LLM/psu-gemma",
     k: int = 3,
     retrieved=None,
-    history: list[dict] | None = None,
 ) -> str:
     if retrieved is None:
         retrieved = retrieve(db, question, k=k)
@@ -125,7 +91,7 @@ def generate_answer(
     if not retrieved:
         return "ไม่พบข้อมูลนี้ในระบบ"
 
-    prompt = _build_prompt(question, retrieved, history)
+    prompt = _build_prompt(question, retrieved)
 
     logger.debug(
         "[llm] prompt (%s):\n%s",
