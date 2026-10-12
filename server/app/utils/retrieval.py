@@ -30,7 +30,7 @@ class RetrievedChunk:
     distance: float
     match_type: str = "vector"
 
-
+# 
 def _fetch_code_matches(db: Session, query_text_str: str, query_embedding: list) -> list:
     """Fetch and rank chunks matching course codes in the query."""
     codes = list(dict.fromkeys(COURSE_CODE_PATTERN.findall(query_text_str)))
